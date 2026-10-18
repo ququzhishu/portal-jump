@@ -1,0 +1,71 @@
+# =====================================================================
+#  折返跃迁 Portal Jump —— 提交忽略规则
+#  原则：只提交"源码 + 文档 + 必要素材"，构建产物和用户数据一律不提交。
+# =====================================================================
+
+# ---- 构建产物（由 build.ps1 生成，不入库）----
+PortalJump/
+dist/
+_buildtest/
+_bt/
+bin/
+obj/
+
+# ---- 编译中间产物 ----
+*.exe
+*.pdb
+*.cache
+*.rsp
+*.resources
+*.baml
+
+# ---- 第三方库的源码/解包（体积大且非本项目代码，需要时从上游取）----
+NvAPIWrapper-master/
+nupkg-extract/
+nvapiwrapper.nupkg
+nvapi-official.h
+
+# 但 NvAPIWrapper.dll 要提交 —— 编译 NVIDIA 版需要它
+!NvAPIWrapper.dll
+
+# ---- 用户本机的运行时数据（绝不提交）----
+presets.ini
+portal-jump.log
+portal-jump-crash.log
+portal-jump-selftest.txt
+
+# ---- 历史素材候选图（200MB+，仅设计过程用）----
+assets/candidates/
+
+# ---- 编辑器 / 系统 ----
+.vs/
+*.user
+*.suo
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# ---- 测试输出的临时文件 ----
+tools/*.txt
+!tools/README.md
+
+# ---- 冗余副本与开发过程遗留 ----
+tools/NvAPIWrapper.dll
+tools/crop-*.png
+assets/gen/jobs-*.json
+
+# ---- 未实机验证的 AMD 相关内容（不发布）----
+AMD机器开发指南.md
+# ---- 内部开发文档（不公开）----
+项目交接.md
+
+# ---- 素材生成脚本（ComfyUI 相关，与软件功能无关）----
+assets/gen/
+
+# ---- 纯开发调试工具（截图 / 素材后处理）----
+tools/Shot.cs
+tools/MenuShot.cs
+tools/IconTool.cs
+# ---- AMD 平台调研（开发中，未验证，暂不公开）----
+AMD平台ADLX调研报告.md
+tools/adlx-probe.cs

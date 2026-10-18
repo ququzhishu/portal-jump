@@ -1,0 +1,57 @@
+<Window x:Class="PortalJump.UI.TrialConfirmWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Width="560" Height="268"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="NoResize" ShowInTaskbar="True" Topmost="True"
+        Title="请确认画面是否正常"
+        Background="{StaticResource CanvasBrush}"
+        FontFamily="{StaticResource UiFont}"
+        TextOptions.TextFormattingMode="Display"
+        UseLayoutRounding="True">
+
+  <Window.Resources>
+    <SolidColorBrush x:Key="DangerBrush" Color="#D0453F" />
+    <Style x:Key="TrialCard" TargetType="Border" BasedOn="{StaticResource Card}">
+      <Setter Property="Background" Value="#C4FFFFFF" />
+      <Setter Property="CornerRadius" Value="14" />
+      <Setter Property="Margin" Value="16" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="Effect">
+        <Setter.Value>
+          <DropShadowEffect BlurRadius="18" ShadowDepth="3" Direction="270" Color="#8B4CA8" Opacity="0.16" />
+        </Setter.Value>
+      </Setter>
+    </Style>
+  </Window.Resources>
+
+  <Border Style="{StaticResource TrialCard}">
+    <Grid>
+      <Grid.RowDefinitions>
+        <RowDefinition Height="44" />
+        <RowDefinition Height="*" />
+        <RowDefinition Height="62" />
+      </Grid.RowDefinitions>
+
+      <TextBlock Grid.Row="0" Text="画面是否正常？" Style="{StaticResource CardTitle}" />
+
+      <StackPanel Grid.Row="1" Margin="24,0,24,0">
+        <TextBlock x:Name="Headline" FontSize="16" FontWeight="Bold"
+                   Foreground="{StaticResource TextPrimaryBrush}" TextWrapping="Wrap" />
+        <TextBlock Margin="0,10,0,0" FontSize="14" TextWrapping="Wrap"
+                   Foreground="{StaticResource TextSecondaryBrush}"
+                   Text="画面显示正常 → 点「保留这个分辨率」；&#x000A;画面异常 / 黑屏 → 不要操作，到时间会自动还原。" />
+        <TextBlock x:Name="Countdown" Margin="0,14,0,0" FontSize="15" FontWeight="Bold"
+                   Foreground="{StaticResource DangerBrush}" />
+      </StackPanel>
+
+      <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right"
+                  VerticalAlignment="Center" Margin="0,0,20,0">
+        <Button Content="立即还原" Style="{StaticResource SecondaryButton}" Height="40" MinWidth="120"
+                AutomationProperties.Name="立即还原" Click="OnRevert" />
+        <Button Content="保留这个分辨率" Style="{StaticResource PrimaryButton}" Height="40" MinWidth="170"
+                Margin="10,0,0,0" AutomationProperties.Name="保留这个分辨率" Click="OnKeep" />
+      </StackPanel>
+    </Grid>
+  </Border>
+</Window>
