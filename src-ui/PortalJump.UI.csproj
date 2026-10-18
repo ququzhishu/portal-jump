@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- =====================================================================
+     折返跃迁 UI 进程（WPF on .NET Framework 4.8）
+     - 用系统自带的 MSBuild 4.8 编译，不需要 .NET SDK、不需要联网
+     - 运行时文件 0 字节：WPF 程序集来自系统 GAC
+     - 与托盘进程（PortalJump.exe）共用 ..\src 下的核心源码
+
+     ★ 两种构建模式（自动判断，不需要手工改这个文件）：
+       1) 存在 ..\NvAPIWrapper.dll  → 编 NVIDIA 版界面
+          定义 WITH_NVAPI，引用 NVAPI，包含「创建自定义分辨率」窗口
+       2) 不存在该 DLL（AMD / Intel 机器）→ 编通用版界面
+          不定义 WITH_NVAPI，不引用 NVAPI，排除自定义分辨率窗口
+     判断依据是文件是否存在，所以同一个 csproj 在两台机器上都能直接编。
+     ===================================================================== -->
+<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Release</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">x64</Platform>
+    <OutputType>WinExe</OutputType>
+    <RootNamespace>PortalJump.UI</RootNamespace>
+    <AssemblyName>PortalJump.UI</AssemblyName>
+    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
+    <PlatformTarget>x64</PlatformTarget>
+
+    <!-- 关键：按 NvAPIWrapper.dll 是否存在决定编哪个版本。
+         必须放在 OutputPath / DefineConstants 之前，MSBuild 是顺序求值的。 -->
+    <HasNvapi Condition="Exists('..\NvAPIWrapper.dll')">true</HasNvapi>
+    <HasNvapi Condition="!Exists('..\NvAPIWrapper.dll')">false</HasNvapi>
+
+    <!-- 输出目录按版本分开，避免通用版界面覆盖 NVIDIA 版界面 -->
+    <OutputPath Condition=" '$(HasNvapi)' == 'true' ">..\PortalJump\nvidia\</OutputPath>
+    <OutputPath Condition=" '$(HasNvapi)' != 'true' ">..\PortalJump\generic\</OutputPath>
+    <WarningLevel>4</WarningLevel>
+    <LangVersion>5</LangVersion>
+    <ApplicationIcon Condition="Exists('..\assets\PortalJump.ico')">..\assets\PortalJump.ico</ApplicationIcon>
+
+    <DefineConstants Condition=" '$(HasNvapi)' == 'true' ">TRACE;WITH_NVAPI</DefineConstants>
+    <DefineConstants Condition=" '$(HasNvapi)' != 'true' ">TRACE</DefineConstants>
+  </PropertyGroup>
+
+  <!-- 编译时提示正在编哪个版本，避免"以为编的是 NVIDIA 版其实是通用版" -->
+  <Target Name="ReportEdition" BeforeTargets="Build">
+    <Message Importance="high" Condition=" '$(HasNvapi)' == 'true' "
+             Text="界面进程：NVIDIA 版（含自定义分辨率窗口）" />
+    <Message Importance="high" Condition=" '$(HasNvapi)' != 'true' "
+             Text="界面进程：通用版（AMD/Intel，无 NvAPIWrapper.dll，已排除自定义分辨率窗口）" />
+  </Target>
+
+  <ItemGroup>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Xaml" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Xml" />
+    <Reference Include="WindowsBase" />
+    <Reference Include="PresentationCore" />
+    <Reference Include="PresentationFramework" />
+    <!-- 只有 NVIDIA 版才引用 NVAPI -->
+    <Reference Include="NvAPIWrapper" Condition=" '$(HasNvapi)' == 'true' ">
+      <HintPath>..\NvAPIWrapper.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+  <!-- 界面（WPF 自己的文件） -->
+  <ItemGroup>
+    <ApplicationDefinition Include="App.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </ApplicationDefinition>
+    <Page Include="Theme\Zoe.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="ProcessPickerWindow.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <!-- 自定义分辨率窗口只在 NVIDIA 版里编 -->
+    <Page Include="CustomResolutionWindow.xaml" Condition=" '$(HasNvapi)' == 'true' ">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="TrialConfirmWindow.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="SettingsWindow.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="AboutWindow.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Compile Include="App.xaml.cs"><DependentUpon>App.xaml</DependentUpon><SubType>Code</SubType></Compile>
+    <Compile Include="AboutWindow.xaml.cs"><DependentUpon>AboutWindow.xaml</DependentUpon><SubType>Code</SubType></Compile>
+    <Compile Include="SettingsWindow.xaml.cs"><DependentUpon>SettingsWindow.xaml</DependentUpon><SubType>Code</SubType></Compile>
+    <Compile Include="ProcessPickerWindow.xaml.cs"><DependentUpon>ProcessPickerWindow.xaml</DependentUpon><SubType>Code</SubType></Compile>
+    <Compile Include="CustomResolutionWindow.xaml.cs" Condition=" '$(HasNvapi)' == 'true' ">
+      <DependentUpon>CustomResolutionWindow.xaml</DependentUpon><SubType>Code</SubType>
+    </Compile>
+    <Compile Include="TrialConfirmWindow.xaml.cs"><DependentUpon>TrialConfirmWindow.xaml</DependentUpon><SubType>Code</SubType></Compile>
+    <Compile Include="Art.cs" />
+  </ItemGroup>
+
+  <!-- 与托盘进程共用的核心源码（同一批文件，两个工程各自 Include） -->
+  <ItemGroup>
+    <Compile Include="..\src\AppInfo.cs"><Link>Core\AppInfo.cs</Link></Compile>
+    <Compile Include="..\src\AppPaths.cs"><Link>Core\AppPaths.cs</Link></Compile>
+    <Compile Include="..\src\AutoStart.cs"><Link>Core\AutoStart.cs</Link></Compile>
+    <Compile Include="..\src\Config.cs"><Link>Core\Config.cs</Link></Compile>
+    <Compile Include="..\src\Preset.cs"><Link>Core\Preset.cs</Link></Compile>
+    <Compile Include="..\src\Scaling.cs"><Link>Core\Scaling.cs</Link></Compile>
+    <Compile Include="..\src\GpuExtensions.cs"><Link>Core\GpuExtensions.cs</Link></Compile>
+    <Compile Include="..\src\NvapiBridge.cs"><Link>Core\NvapiBridge.cs</Link></Compile>
+    <Compile Include="..\src\DisplayConfigBackend.cs"><Link>Core\DisplayConfigBackend.cs</Link></Compile>
+    <Compile Include="..\src\DisplayInfo.cs"><Link>Core\DisplayInfo.cs</Link></Compile>
+    <Compile Include="..\src\Switcher.cs"><Link>Core\Switcher.cs</Link></Compile>
+    <!-- 底纹（乘法混色）；辅助对话框已全部迁到 WPF，不再需要 UiKit / WinForms -->
+    <Compile Include="..\src\Backdrop.cs"><Link>Core\Backdrop.cs</Link></Compile>
+  </ItemGroup>
+
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>
