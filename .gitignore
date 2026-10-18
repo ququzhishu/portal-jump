@@ -54,3 +54,5 @@ tools/NvAPIWrapper.dll
 tools/crop-*.png
 assets/gen/jobs-*.json
 
+# ---- 未实机验证的 AMD 相关内容（不发布）----
+AMD机器开发指南.md

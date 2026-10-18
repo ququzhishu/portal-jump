@@ -29,8 +29,7 @@
 | 特性 | 说明 |
 |---|---|
 | **按程序自动切换** | 轮询检测关联进程，命中即切换，全部退出后自动恢复 |
-| **分辨率 + 缩放一起切** | 不只是分辨率，缩放方式（全屏铺满 / 保持比例 / 居中不缩放）也一起切 |
-| **NVIDIA / AMD / Intel 都能用** | 缩放不再绑定 NVIDIA，见下方「两个版本」 |
+| **分辨率 + 缩放一起切** | 不只是分辨率，缩放方式（全屏铺满 / 保持比例 / 居中不缩放 / 整数缩放）也一起切 |
 | **切换后看门狗** | 游戏启动后常会自己再改一次分辨率，工具会在 12 秒内发现并纠正 |
 | **回读校验** | 每次切换后回读确认，不轻信 API 返回值（驱动忙时会"假成功"） |
 | **绿色免安装** | 解压即用，配置在同目录，整个文件夹拷走就能带走配置 |
@@ -39,44 +38,29 @@
 
 ---
 
-## 两个版本
+## 运行要求
 
-缩放这件事，不同显卡驱动行为不一样，所以提供两个版本（**同一套源码**，编译符号区分）：
+- **NVIDIA 显卡** + 官方驱动（缩放走 NVIDIA NVAPI 接口）
+- Windows 10 / 11（64 位）
+- .NET Framework 4.8（Win10 1903+ 与 Win11 已内置）
 
-| | **NVIDIA 版** | **通用版（AMD / Intel）** |
-|---|---|---|
-| 缩放实现 | NVIDIA NVAPI | Windows 原生 `DEVMODE.dmDisplayFixedOutput` |
-| 需要 `NvAPIWrapper.dll` | 需要 | **不需要** |
-| 全屏铺满 / 保持比例 / 居中 | ✅ | ✅（见下方验证状态） |
-| 整数缩放 | ✅ | ❌ |
-| 创建自定义分辨率 | ✅ | ❌ |
-| 包名 | `折返跃迁v0.11-NVIDIA显卡版.zip` | `折返跃迁v0.11-AMD或Intel显卡版.zip` |
-
-### ⚠️ 通用版的验证状态（请如实看待）
-
-开发环境只有一台 NVIDIA RTX 4060 Ti 16GB，**没有 AMD 机器可用**。所以：
-
-| 项目 | 状态 |
-|---|---|
-| 通用版能启动、托盘常驻、能切分辨率、界面能开、不崩溃 | ✅ 已验证 |
-| 通用版**缩放在 AMD 驱动上能否生效** | ❌ **未在 AMD 实机验证** |
-
-拿到通用版后请先跑 `环境自检.cmd`，看报告里 `[缩放自检]` 那三行是否都是「驱动接受」。
-如果是「驱动拒绝」，说明该驱动上这条路不通，请提 issue 附上自检报告。
+> 本版本仅支持 NVIDIA 显卡。AMD / Intel 用户暂不适用。
 
 ---
 
 ## 下载
 
-到 [Releases](../../releases) 页面下载对应压缩包：
+到 [Releases](../../releases) 页面下载 `折返跃迁vX.Y-NVIDIA显卡版.zip`，解压后双击 `PortalJump.exe` 即可，无需安装。
 
-- **NVIDIA 显卡** → `折返跃迁vX.Y-NVIDIA显卡版.zip`
-- **AMD / Intel 显卡** → `折返跃迁vX.Y-AMD或Intel显卡版.zip`
-- **想自己编译 / 二次开发** → `折返跃迁vX.Y-AMD开发源码包.zip`（含完整源码、构建脚本、测试工具）
+包里包含：
 
-解压后双击 `PortalJump.exe` 即可，无需安装。
-
-**运行要求**：Windows 10 / 11（64 位）、.NET Framework 4.8（Win10 1903+ 与 Win11 已内置）。
+```
+PortalJump.exe        托盘主程序
+PortalJump.UI.exe     设置界面
+NvAPIWrapper.dll      NVAPI 封装（必须有，请不要删）
+先看这里.txt / 使用说明.md / 部署说明.md / 环境自检.cmd
+presets.example.ini + 图标素材
+```
 
 ---
 
@@ -87,8 +71,9 @@
 3. 「新增」一个预设：填名称、选分辨率与缩放方式 →「关联程序」里勾上你的游戏 →「保存并应用」
 4. 之后打开那个游戏，就会自动切换了
 
-**NVIDIA 用户建议先做一步**：NVIDIA 控制面板 →「显示」→「调整桌面尺寸和位置」，
-取消勾选「覆盖由游戏和程序设置的缩放模式」，点应用。不做这步可能分辨率能切但缩放不变。
+**建议先做这一步**：NVIDIA 控制面板 →「显示」→「调整桌面尺寸和位置」，
+取消勾选「覆盖由游戏和程序设置的缩放模式」，点应用。
+不做这步可能分辨率能切但缩放不变——这是 NVIDIA 上最常见的坑。
 
 ---
 
@@ -116,7 +101,7 @@ scaling=centered-gpu
 process=DeltaForceClient-Win64-Shipping
 ```
 
-`scaling` 可选值（与显卡厂商无关的语义名）：
+`scaling` 可选值：
 
 | 值 | 含义 |
 |---|---|
@@ -127,9 +112,12 @@ process=DeltaForceClient-Win64-Shipping
 | `aspect-display` | 保持比例，显示器缩放 |
 | `centered-gpu` | 居中不缩放，GPU 缩放 |
 | `centered-display` | 居中不缩放，显示器缩放 |
-| `integer-gpu` | 整数缩放（仅 NVIDIA） |
+| `integer-gpu` | 整数缩放 |
 
 > 旧版配置里的数字（`0`/`1`/`2`/`3`/`5`/`6`/`7`/`8`）会被自动识别并迁移，不用手改。
+
+`process` 填进程名（不含 `.exe`，多个用分号隔开）。不知道进程名？
+用设置界面里的「选择运行中的程序…」最省事。
 
 ---
 
@@ -146,25 +134,21 @@ cd res-switch
 产出：
 
 ```
-PortalJump\PortalJump.exe            NVIDIA 版
-PortalJump\PortalJump-generic.exe    通用版
-PortalJump\nvidia\PortalJump.UI.exe  NVIDIA 版界面
-PortalJump\generic\PortalJump.UI.exe 通用版界面
-dist\                                三个分发包（NVIDIA / 通用 / 开发源码）
+PortalJump\PortalJump.exe            托盘主程序
+PortalJump\nvidia\PortalJump.UI.exe  设置界面
+dist\                                分发包
 ```
 
-`build.ps1` 会检测 `NvAPIWrapper.dll` 是否存在：
-有则编两个版本，没有则只编通用版（AMD 机器上属正常情况）。
+也可以双击 `build.cmd` 一键构建。
 
 ### 代码结构
 
 ```
-src\                     托盘进程 + 两个界面共用的核心
-  Scaling.cs             缩放语义层（与厂商解耦）
-  DisplayConfigBackend.cs 跨厂商后端（Win32 DEVMODE + CCD）
-  NvapiBridge.cs         NVAPI 隔离层（唯一接触 NvAPIWrapper 的地方）
-  GpuExtensions.cs       版本能力开关（WITH_NVAPI 条件编译）
-  Switcher.cs            切换逻辑、后端选择、自检
+src\                     托盘进程 + 界面共用的核心
+  Scaling.cs             缩放语义层
+  DisplayConfigBackend.cs 显示配置后端（Win32 DEVMODE + CCD）
+  NvapiBridge.cs         NVAPI 隔离层
+  Switcher.cs            切换逻辑、回读校验
   Program.cs             入口、托盘、进程监控、看门狗
 src-ui\                  界面进程（WPF）
 tools\                   回归测试与诊断工具
@@ -177,37 +161,35 @@ tools\                   回归测试与诊断工具
 ## 测试
 
 ```powershell
-.\tools\ConfigTest.exe  .\PortalJump\presets.ini   # 配置层回归
-.\tools\ScalingTest.exe                            # 缩放语义 / 旧配置迁移
-.\tools\SwitchTest.exe  .\PortalJump\PortalJump.exe # 真实切换（会改屏幕，自动还原）
+.\tools\ConfigTest.exe  .\PortalJump\presets.ini   # 配置层回归（17 项）
+.\tools\ScalingTest.exe                            # 缩放语义 / 旧配置迁移（39 项）
+.\tools\SwitchTest.exe  .\PortalJump\PortalJump.exe # 真实切换（15 项，会改屏幕，自动还原）
 .\tools\WatchdogTest.exe .\PortalJump\PortalJump.exe .\tools\rsprobe-game.exe  # 看门狗
 .\tools\UiProbe.exe     .\PortalJump\PortalJump.UI.exe  # 界面自动化
 .\tools\TrayProbe.exe   .\PortalJump\PortalJump.exe .\tools\rsprobe-game.exe   # 托盘端到端
 ```
 
-当前状态：ConfigTest 17/17、ScalingTest 39/39、SwitchTest 15/15 通过。
-
 ---
 
 ## 已知限制
 
-- 「整数缩放」与「创建自定义分辨率」仅 NVIDIA 版支持（NVAPI 专有能力）。
-- `dmDisplayFixedOutput` 只有「拉伸 / 居中」两档，所以通用版里「保持比例」和「居中不缩放」
-  都映射到「居中」，具体留黑边方式由驱动/显示器决定。
+- 仅支持 NVIDIA 显卡（缩放依赖 NVAPI）。
 - 进程检测是轮询（约 2 秒一次），不是事件驱动；极短命的进程可能漏掉。
 - 切换后有 12 秒看门狗（最多纠正 3 次），超过就不再纠缠。
 - 没有安装包，升级就是覆盖文件夹；配置在程序目录或 `%APPDATA%\PortalJump\`，不会被覆盖。
+- 自定义分辨率的保护机制是「15 秒内不确认就还原」，但如果驱动在试验阶段直接卡死，仍需手动重启。
 
 ---
 
 ## 免责声明
 
-本工具会**直接通过显示驱动修改分辨率、刷新率与缩放模式**，可能出现黑屏、花屏、显示异常等情况。
+本工具会**直接通过显示驱动修改分辨率、刷新率与缩放模式**，并可创建自定义分辨率，
+可能出现黑屏、花屏、显示异常等情况。
 
 使用前请自行确认显示器与驱动支持你要设置的模式；因使用本工具造成的任何直接或间接损失
 （含数据丢失、工作中断、硬件损坏），作者不承担任何责任。
 
-本工具为个人免费作品，按「现状」提供，不提供任何担保，与 NVIDIA / AMD / Intel 等公司无关联。
+本工具为个人免费作品，按「现状」提供，不提供任何担保，与 NVIDIA 公司无关联。
 继续使用即表示接受以上内容，不同意请不要运行。
 
 ---
