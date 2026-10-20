@@ -277,7 +277,7 @@ namespace PortalJump
             FilePath = path;
             var sb = new StringBuilder();
             sb.AppendLine("; 折返跃迁 Portal Jump 配置文件（可以直接用记事本修改，也可以用图形界面修改）");
-            sb.AppendLine("; scaling 取值（与显卡厂商无关，AMD / Intel / NVIDIA 都能用）：");
+            sb.AppendLine("; scaling 取值（与显卡厂商无关，NVIDIA / AMD 都能用）：");
             sb.AppendLine(";   unchanged        不改动（保持当前设置）");
             sb.AppendLine(";   fullscreen-gpu   全屏铺满，GPU 缩放");
             sb.AppendLine(";   fullscreen-display 全屏铺满，显示器缩放");

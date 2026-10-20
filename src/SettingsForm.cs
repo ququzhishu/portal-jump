@@ -563,6 +563,12 @@ namespace PortalJump
             UiKit.StyleCombo(_cmbScaling);
             _cmbScaling.DropDownStyle = ComboBoxStyle.DropDownList;
             foreach (ScalingSpec s in Preset.ScalingChoices) _cmbScaling.Items.Add(ScalingNames.Label(s));
+            // 【仅分辨率版】不设置缩放：禁用下拉并说明，避免"能选但不生效"的误导
+            if (!GpuExtensions.SupportsScaling)
+            {
+                _cmbScaling.Enabled = false;
+                _cmbScaling.SelectedIndex = 0;
+            }
             _cmbScaling.SelectedIndexChanged += delegate
             {
                 if (_loading) return;
@@ -926,42 +932,87 @@ namespace PortalJump
 
         void CreateCustomResolution()
         {
-            // 通用版（不带 NVAPI）里没有这个对话框，直接说明原因。
-            // 用编译符号判断，而不是运行时判断 —— 通用版压根不编译 CustomResolutionForm。
-            if (!GpuExtensions.SupportsCustomResolution)
+            // 运行时能力：NVIDIA 走 NVAPI，AMD 走 ADLX（方案 B）；其余厂商不可用。
+            bool nv = GpuExtensions.SupportsCustomResolution && Switcher.NvapiReady;
+            bool amd = Switcher.Vendor == GpuVendor.Amd && Switcher.AdlxReady;
+
+            if (amd)
             {
-                MessageBox.Show(this,
-                    GpuExtensions.UnavailableReason("创建自定义分辨率"),
+                bool sup;
+                string supDetail;
+                if (Switcher.AmdCustomResolutionSupported(out sup, out supDetail) && !sup)
+                {
+                    MessageBox.Show(this, supDetail, AppInfo.Title,
+                        MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    return;
+                }
+            }
+
+            if (!nv && !amd)
+            {
+                MessageBox.Show(this, Switcher.CustomResolutionUnavailableReason(),
                     AppInfo.Title, MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
 
-            if (!Switcher.NvapiReady)
+#if WITH_NVAPI || UNIFIED
+            if (nv)
             {
-                MessageBox.Show(this,
-                    "创建自定义分辨率是 NVIDIA 驱动专有的功能（通过 NVAPI），当前不可用：\n"
-                    + Switcher.NvapiError
-                    + "\n\n注意：这只是“自定义分辨率”这一项不可用，"
-                    + "切换分辨率和缩放方式在 AMD / Intel 显卡上照常可用。",
-                    AppInfo.Title, MessageBoxButtons.OK, MessageBoxIcon.Information);
+                using (var dlg = new CustomResolutionForm((int)_numW.Value, (int)_numH.Value))
+                {
+                    if (dlg.ShowDialog(this) != DialogResult.OK) return;
+
+                    RefreshResolutionCombo();
+                    _loading = true;
+                    _numW.Value = Clamp(dlg.ResultWidth);
+                    _numH.Value = Clamp(dlg.ResultHeight);
+                    _loading = false;
+                    CommitResolution();
+                    RefreshEnvironment();
+                    SetStatus("自定义分辨率 " + dlg.ResultWidth + "x" + dlg.ResultHeight + " 已写入驱动，现在可以直接应用或保存。");
+                }
                 return;
             }
+#endif
 
-#if WITH_NVAPI
-            using (var dlg = new CustomResolutionForm((int)_numW.Value, (int)_numH.Value))
+            if (amd)
             {
-                if (dlg.ShowDialog(this) != DialogResult.OK) return;
+                int w = (int)_numW.Value;
+                int h = (int)_numH.Value;
+                if (w < 320 || w > 9999 || h < 320 || h > 9999)
+                {
+                    MessageBox.Show(this, "宽度/高度需要在 320 ~ 9999 之间。", AppInfo.Title,
+                        MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
 
+                var go = MessageBox.Show(this,
+                    "将通过 AMD 官方 ADLX 创建自定义分辨率 " + w + "x" + h
+                    + "（刷新率与时序沿用当前模式）。\n\n创建只是把分辨率注册进驱动，"
+                    + "随后会自动应用；若显示器不接受，AMD 驱动会自动回退到原模式。是否继续？",
+                    AppInfo.Title, MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                if (go != DialogResult.Yes) return;
+
+                int hz;
+                string detail;
+                bool ok = Switcher.AmdCreateCustomResolution(w, h, out hz, out detail);
+                if (!ok)
+                {
+                    MessageBox.Show(this, "创建自定义分辨率失败：\n" + detail,
+                        AppInfo.Title, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                System.Threading.Thread.Sleep(800); // 等驱动把新模式暴露给系统
                 RefreshResolutionCombo();
                 _loading = true;
-                _numW.Value = Clamp(dlg.ResultWidth);
-                _numH.Value = Clamp(dlg.ResultHeight);
+                try { _numW.Value = Clamp(w); _numH.Value = Clamp(h); }
+                catch { }
                 _loading = false;
                 CommitResolution();
                 RefreshEnvironment();
-                SetStatus("自定义分辨率 " + dlg.ResultWidth + "x" + dlg.ResultHeight + " 已写入驱动，现在可以直接应用或保存。");
+                SetStatus("AMD 自定义分辨率 " + w + "x" + h + "@" + hz + "Hz 已写入驱动，现在可以直接应用或保存。");
             }
-#endif
         }
 
         // ==================================================================

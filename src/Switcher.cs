@@ -30,6 +30,11 @@ namespace PortalJump
         static string _gpuInfo = "";
         static string _driverInfo = "";
 
+        // ---- ADLX 状态（经 AdlxBridge，AMD 专用缩放通路）----
+        // AMD 显卡的专用缩放通路，加载失败或枚举不到显示器时如实报告，不自动降级。
+        static bool _adlxReady;
+        static string _adlxError = "";
+
         // ---- 本机显卡与后端选择 ----
         static GpuVendor _vendor = GpuVendor.Unknown;
         static string _vendorText = "";
@@ -61,9 +66,86 @@ namespace PortalJump
 
         public static bool NvapiReady { get { return _nvapiReady; } }
         public static string NvapiError { get { return _nvapiError; } }
+        public static bool AdlxReady { get { return _adlxReady; } }
+        public static string AdlxError { get { return _adlxError; } }
         public static string GpuInfo { get { return _gpuInfo; } }
         public static string DriverInfo { get { return _driverInfo; } }
         public static GpuVendor Vendor { get { return _vendor; } }
+
+        /// <summary>
+        /// 当前是否可创建自定义分辨率：NVIDIA 走 NVAPI，AMD 走 ADLX（方案 B）。
+        /// 这是运行时判断（取决于实际厂商与桥接是否就绪），供界面决定是否放行。
+        /// </summary>
+        public static bool CustomResolutionAvailable
+        {
+            get
+            {
+                if (_vendor == GpuVendor.Nvidia && _nvapiReady) return true;
+                if (_vendor == GpuVendor.Amd && _adlxReady)
+                {
+                    try
+                    {
+                        bool supported;
+                        string detail;
+                        return AdlxBridge.CustomResolutionSupported(out supported, out detail) && supported;
+                    }
+                    catch { return false; }
+                }
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 自定义分辨率不可用时给用户看的原因（可用时返回空串）。
+        /// 区分 NVIDIA / AMD / 其他厂商，避免把 AMD 误报成"需要 NVIDIA"。
+        /// </summary>
+        public static string CustomResolutionUnavailableReason()
+        {
+            if (_vendor == GpuVendor.Amd)
+            {
+                if (!_adlxReady)
+                {
+                    return "AMD 显卡创建自定义分辨率需要官方 ADLX 接口，但当前桥接不可用：\n"
+                        + _adlxError
+                        + "\n\n请确认：① 已完整安装 AMD Software 驱动；② 显示器直连显卡输出口"
+                        + "（远程桌面 / 向日葵会话下 ADLX 枚举不到物理显示器）；③ 以管理员权限运行。";
+                }
+                return "该显示器当前不支持创建自定义分辨率（AMD 驱动报告）。\n\n"
+                    + "复制 / Eyefinity 多屏模式，或某些连接类型下 AMD 不允许自定义分辨率，"
+                    + "请改为单屏独立显示模式后再试。";
+            }
+            if (_vendor == GpuVendor.Intel)
+            {
+                return "本程序未在 Intel 显卡上验证过，因此不在程序内提供创建自定义分辨率。\n\n"
+                    + "如需自定义分辨率，请在 Intel 显卡控制中心（或 Windows 显示设置）中操作。";
+            }
+            return "创建自定义分辨率需要显卡驱动专有接口（NVIDIA NVAPI / AMD ADLX）。\n\n"
+                + "当前显卡未识别为 NVIDIA 或 AMD，或对应的驱动桥接没有就绪，因此该功能不可用。"
+                + "切换分辨率和缩放方式不受影响。";
+        }
+
+        // ---- AMD（ADLX）自定义分辨率转发封装 ----
+        public static bool AmdCustomResolutionSupported(out bool supported, out string detail)
+        {
+            return AdlxBridge.CustomResolutionSupported(out supported, out detail);
+        }
+        internal static System.Collections.Generic.List<AdlxBridge.AdlxCustomResolutionInfo> AmdListCustomResolutions()
+        {
+            return AdlxBridge.EnumerateCustomResolutions();
+        }
+        public static bool AmdCreateCustomResolution(int width, int height, out int refreshRate, out string detail)
+        {
+            bool ok = AdlxBridge.CreateCustomResolution(width, height, out refreshRate, out detail);
+            if (ok) Log("ADLX 自定义分辨率已创建：" + width + "x" + height + "@" + refreshRate);
+            else Log("ADLX 自定义分辨率创建失败：" + detail);
+            return ok;
+        }
+        public static bool AmdDeleteCustomResolution(int width, int height, out string detail)
+        {
+            bool ok = AdlxBridge.DeleteCustomResolution(width, height, out detail);
+            Log("ADLX 自定义分辨率删除 " + width + "x" + height + "：" + (ok ? "成功" : "失败 " + detail));
+            return ok;
+        }
 
         /// <summary>给界面用的一行环境摘要</summary>
         public static string EnvironmentText
@@ -126,6 +208,10 @@ namespace PortalJump
         {
             get
             {
+                // 仅分辨率版：完全不碰缩放，如实说明
+                if (GpuExtensions.ResolutionOnly)
+                    return "不设置缩放（仅分辨率版）—— 缩放方式由显卡驱动面板决定";
+
                 if (_backendOverride == ScalingBackend.Nvapi)
                     return "NVIDIA NVAPI（已手动强制指定）";
                 if (_backendOverride == ScalingBackend.Win32)
@@ -133,6 +219,10 @@ namespace PortalJump
 
                 if (UsesNvapiScaling)
                     return "NVIDIA NVAPI（该驱动不采纳 Windows 原生缩放字段）";
+                if (_vendor == GpuVendor.Amd && _adlxReady)
+                    return "AMD ADLX（官方驱动配置接口，精确控制缩放模式）";
+                if (_vendor == GpuVendor.Amd && !_adlxReady)
+                    return "AMD ADLX 不可用（" + _adlxError + "）—— 按不降级原则，缩放不会设置；如确需可强制 Win32 后端";
                 if (_vendor == GpuVendor.Nvidia && !_nvapiReady)
                     return "Windows 原生接口（NVAPI 不可用，缩放可能无效）";
                 return "Windows 原生接口（DEVMODE.dmDisplayFixedOutput，兼容所有显卡）";
@@ -231,31 +321,78 @@ namespace PortalJump
 
             // 2) 尝试 NVAPI。全部经由 NvapiBridge，主代码不碰任何 NVAPI 类型，
             //    所以 NvAPIWrapper.dll 缺失时只是降级，不会崩。
-            try
-            {
-                _nvapiReady = NvapiBridge.TryInit();
-                _nvapiError = NvapiBridge.Error;
-                _gpuInfo = NvapiBridge.GpuInfo;
-                _driverInfo = NvapiBridge.DriverInfo;
-
-                if (_nvapiReady)
-                {
-                    Log("NVAPI 初始化成功：" + (_gpuInfo.Length > 0 ? _gpuInfo : "(未识别)"));
-                }
-                else if (_vendor == GpuVendor.Nvidia)
-                {
-                    Log("NVAPI 初始化失败（将改用 Windows 原生缩放接口）: " + _nvapiError);
-                }
-                else
-                {
-                    Log("非 NVIDIA 显卡，跳过 NVAPI，使用 Windows 原生缩放接口");
-                }
-            }
-            catch (Exception e)
+            //
+            //    【合并版 UNIFIED】已确认是 AMD 的机器**直接跳过 NVAPI**，不加载
+            //    NvAPIWrapper.dll、不调用 NVIDIA.Initialize() —— 这样合并版在 AMD 上的
+            //    行为与已验证的 AMD 版完全一致（后者走 #else 空实现，同样一次都不碰 NVAPI）。
+            //    未识别厂商时仍会尝试，避免把"N 卡但识别失败"误判成不支持。
+            //
+            //    仅合并版做这个短路；NVIDIA 版 / 通用版保持原有代码路径不变，
+            //    以免动到已经验证过的行为。
+#if UNIFIED
+            bool skipNvapi = (_vendor == GpuVendor.Amd);
+#else
+            bool skipNvapi = false;
+#endif
+            if (skipNvapi)
             {
                 _nvapiReady = false;
-                _nvapiError = e.Message;
-                Log("NVAPI 初始化异常（已降级）：" + e.Message);
+                _nvapiError = "本机是 AMD 显卡，不使用 NVAPI；缩放走 AMD 官方 ADLX。";
+                _gpuInfo = "";
+                _driverInfo = "";
+                Log("显卡厂商为 AMD，跳过 NVAPI（改用 ADLX / Windows 原生接口）");
+            }
+            else
+            {
+                try
+                {
+                    _nvapiReady = NvapiBridge.TryInit();
+                    _nvapiError = NvapiBridge.Error;
+                    _gpuInfo = NvapiBridge.GpuInfo;
+                    _driverInfo = NvapiBridge.DriverInfo;
+
+                    if (_nvapiReady)
+                    {
+                        Log("NVAPI 初始化成功：" + (_gpuInfo.Length > 0 ? _gpuInfo : "(未识别)"));
+                    }
+                    else if (_vendor == GpuVendor.Nvidia)
+                    {
+                        Log("NVAPI 初始化失败（改用 Windows 原生缩放接口）: " + _nvapiError);
+                    }
+                    else
+                    {
+                        Log("非 NVIDIA 显卡，跳过 NVAPI，使用 Windows 原生缩放接口");
+                    }
+                }
+                catch (Exception e)
+                {
+                    _nvapiReady = false;
+                    _nvapiError = e.Message;
+                    Log("NVAPI 初始化异常（已降级）：" + e.Message);
+                }
+            }
+
+            // 2.5) AMD 显卡：尝试 ADLX 桥接层（方案 B）。
+            //      ADLX 是 AMD 官方的驱动配置接口，随 amdadlx64.dll 安装。
+            //      成功则缩放走 ADLX（精确设置 GPU scaling mode），失败则记录原因。
+            //      不做自动降级到 Win32 —— ADLX 不可用时在报告里如实说明。
+            if (_vendor == GpuVendor.Amd)
+            {
+                try
+                {
+                    _adlxReady = AdlxBridge.TryInit();
+                    _adlxError = AdlxBridge.Error;
+                    if (_adlxReady)
+                        Log("ADLX 初始化成功：" + (AdlxBridge.DisplayName.Length > 0 ? AdlxBridge.DisplayName : "(未识别显示器)"));
+                    else
+                        Log("ADLX 初始化失败：" + _adlxError);
+                }
+                catch (Exception e)
+                {
+                    _adlxReady = false;
+                    _adlxError = e.Message;
+                    Log("ADLX 初始化异常：" + e.Message);
+                }
             }
 
             // 3) NVAPI 成功但没拿到名字时，用适配器名兜底
@@ -307,6 +444,17 @@ namespace PortalJump
                     }
 
                     // ---------- 2) 缩放 ----------
+                    // 【仅分辨率版】完全不碰缩放：缩放方式由用户在显卡驱动面板里设好，
+                    // 程序只负责切分辨率，驱动会沿用那个设置。
+                    // 这样零厂商依赖、任何显卡通用，也不会因为缩放设不上而报错。
+                    if (GpuExtensions.ResolutionOnly)
+                    {
+                        message = string.Format("已切换：{0}x{1}@{2}Hz（缩放方式由显卡驱动设置决定，本版本不改动）",
+                            p.Width, p.Height, appliedHz);
+                        Log("成功(仅分辨率版，不碰缩放): " + message);
+                        return true;
+                    }
+
                     if (spec.IsUnchanged)
                     {
                         message = string.Format("已切换：{0}x{1}@{2}Hz，缩放保持当前设置（未改动）",
@@ -388,8 +536,16 @@ namespace PortalJump
                 return false;
             }
 
-            // 只有原生后端需要把缩放并进模式切换（NVAPI 能独立设缩放）
-            bool foldScaling = !UsesNvapiScaling && !spec.IsUnchanged
+            // 缩放并进"切模式"那一次调用，只对 Windows 原生后端有意义。
+            // 【仅分辨率版】永远不并：它根本不碰缩放。
+            // 【NVIDIA】走 NVAPI 独立设缩放，不并。
+            // 【AMD】方案 B 走 ADLX 官方接口独立设缩放，也不并；除非用户显式强制 Win32
+            //   后端（排错用）。ADLX 不可用时同样不并 —— 按"不降级"原则，后面会如实报错，
+            //   而不是悄悄用 dmDisplayFixedOutput 顶替。
+            bool amdUsesAdlx = _vendor == GpuVendor.Amd && _backendOverride != ScalingBackend.Win32;
+            bool foldScaling = !GpuExtensions.ResolutionOnly
+                && !UsesNvapiScaling && !amdUsesAdlx
+                && !spec.IsUnchanged
                 && spec.Mode != ScalingMode.Integer;
 
             // 已经是目标分辨率：无法靠"切模式"带出缩放，交给后面的单独设置
@@ -595,6 +751,27 @@ namespace PortalJump
                 return TryApplyScalingNvapi(spec, out detail, out actual);
             }
 
+            // AMD 显卡 + ADLX 就绪：走 ADLX 精确设置缩放（方案 B）
+            if (_vendor == GpuVendor.Amd && _adlxReady && _backendOverride != ScalingBackend.Win32)
+            {
+                bool adlxOk = AdlxBridge.ApplyScaling(spec, out detail, out actual);
+                if (adlxOk) return true;
+                // ADLX 失败：如实报错，不自动降级到 Win32
+                detail = "ADLX 设置失败：" + detail;
+                return false;
+            }
+
+            // AMD 显卡但 ADLX 不可用：不降级到 Win32，如实报错
+            // （用户明确要求 AMD 版必须走 ADLX，不走 Windows 原生字段）
+            if (_vendor == GpuVendor.Amd && !_adlxReady && _backendOverride != ScalingBackend.Win32)
+            {
+                detail = "AMD 显卡 ADLX 桥接不可用，无法设置缩放：" + _adlxError
+                       + "。请确认：① AMD Software 完整安装；② 显示器直连显卡输出口"
+                       + "（远程桌面/向日葵会话下 ADLX 枚举不到物理显示器）；"
+                       + "③ 以管理员权限运行。如确需临时走原生接口，可在设置里强制指定 Win32 后端。";
+                return false;
+            }
+
             // 先走原生
             string gDetail, gActual;
             bool ok = TryApplyScalingGeneric(spec, out gDetail, out gActual);
@@ -679,7 +856,7 @@ namespace PortalJump
             ScalingMode mode = spec.Mode;
             if (mode == ScalingMode.Integer)
             {
-                detail = "整数缩放需要 NVIDIA 显卡（本机为 " + _vendorText + "）";
+                detail = "整数缩放需要显卡专有接口（NVIDIA NVAPI / AMD ADLX），原生 Win32 接口不支持（本机为 " + _vendorText + "）";
                 return false;
             }
 
@@ -775,8 +952,25 @@ namespace PortalJump
             else
             {
                 sb.AppendLine("  NVAPI：不可用 —— " + _nvapiError);
-                sb.AppendLine("  说明：这不是错误。非 NVIDIA 显卡本来就没有 NVAPI，");
-                sb.AppendLine("        缩放会自动改走 Windows 原生接口，功能不受影响。");
+                if (GpuExtensions.ResolutionOnly)
+                {
+                    // 仅分辨率版本来就不需要 NVAPI，别让用户以为"缺了组件"
+                    sb.AppendLine("  说明：本版本只切换分辨率，本来就不需要 NVAPI，这是正常的。");
+                }
+                else
+                {
+                    if (_vendor == GpuVendor.Amd && _adlxReady)
+                    {
+                        // AMD 走 ADLX：缩放、整数缩放、自定义分辨率都由官方 ADLX 提供
+                        sb.AppendLine("  说明：AMD 显卡不使用 NVAPI，缩放 / 整数缩放 / 自定义分辨率");
+                        sb.AppendLine("        均改走 AMD 官方 ADLX 接口（见下文），功能不受影响。");
+                    }
+                    else
+                    {
+                        sb.AppendLine("  说明：这不是错误。非 NVIDIA 显卡本来就没有 NVAPI，");
+                        sb.AppendLine("        缩放会自动改走 Windows 原生接口，功能不受影响。");
+                    }
+                }
             }
             sb.AppendLine("  缩放通路：" + ScalingBackendText);
             sb.AppendLine();
@@ -802,6 +996,19 @@ namespace PortalJump
                 sb.AppendLine("  读取失败：" + e.Message);
             }
             sb.AppendLine();
+
+            // 仅分辨率版不做缩放自检 —— 它根本不碰缩放，测了也没意义，反而误导用户。
+            if (GpuExtensions.ResolutionOnly)
+            {
+                sb.AppendLine("[缩放]");
+                sb.AppendLine("  本版本只切换分辨率，不设置缩放方式。");
+                sb.AppendLine("  缩放方式请在显卡驱动控制面板里设置一次：");
+                sb.AppendLine("    · NVIDIA：NVIDIA 控制面板 → 显示 → 调整桌面尺寸和位置");
+                sb.AppendLine("    · AMD   ：AMD Software → 设置 → 显示 → 缩放模式");
+                sb.AppendLine("  设置好之后，切换分辨率时会自动沿用该缩放方式。");
+                sb.AppendLine();
+                return sb.ToString();
+            }
 
             sb.AppendLine("[缩放自检]（CDS_TEST 校验，不会切换画面）");
             try
@@ -838,7 +1045,9 @@ namespace PortalJump
                 }
                 sb.AppendLine("  整数缩放：" + (_nvapiReady
                     ? "NVIDIA 显卡，走 NVAPI"
-                    : "需要 NVIDIA 显卡，本机不支持（不影响其它缩放方式）"));
+                    : (_vendor == GpuVendor.Amd && _adlxReady
+                        ? "AMD 显卡，走 ADLX（开 GPU scaling 后可用）"
+                        : "需要 NVIDIA 或 AMD 显卡的专有接口，本机不支持（不影响其它缩放方式）")));
             }
             catch (Exception e)
             {
@@ -855,6 +1064,19 @@ namespace PortalJump
                 {
                     sb.AppendLine();
                     sb.AppendLine("[NVAPI 缩放自检] 失败：" + e.Message);
+                }
+            }
+
+            if (_vendor == GpuVendor.Amd)
+            {
+                try
+                {
+                    sb.Append(AdlxBridge.SelfTestSection());
+                }
+                catch (Exception e)
+                {
+                    sb.AppendLine();
+                    sb.AppendLine("[ADLX 缩放自检] 失败：" + e.Message);
                 }
             }
             return sb.ToString();

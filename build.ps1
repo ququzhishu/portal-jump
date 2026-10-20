@@ -1,4 +1,4 @@
-﻿# =====================================================================
+# =====================================================================
 #  折返跃迁 Portal Jump 构建脚本
 #
 #  用法：
@@ -78,7 +78,7 @@ if ($running.Count -gt 0) {
 # 两个版本共用同一套源码，差别只有两处：
 #   · NVIDIA 版：/define:WITH_NVAPI + 引用 NvAPIWrapper.dll + 编译 CustomResolutionForm.cs
 #   · 通用版  ：不定义该符号、不引用 NVAPI、排除 CustomResolutionForm.cs
-# 通用版是给 AMD / Intel 用户用的 —— 他们机器上没有 NvAPIWrapper.dll，
+# 通用版是给 AMD 用户用的 —— 他们机器上没有 NvAPIWrapper.dll，
 # 通用版**不需要**那个文件也能跑。
 $commonRefs = @('/r:System.dll', '/r:System.Core.dll', '/r:System.Drawing.dll', '/r:System.Windows.Forms.dll')
 $icoArg = @()
@@ -109,11 +109,11 @@ if ($hasNvapi) {
     Write-Host ("编译成功: {0}  ({1:N0} 字节, {2})" -f $exe.FullName, $exe.Length, $exe.LastWriteTime) -ForegroundColor Green
 }
 else {
-    Write-Host "跳过 NVIDIA 版：当前目录没有 NvAPIWrapper.dll（在 AMD / Intel 机器上这是正常的）。" -ForegroundColor Yellow
+    Write-Host "跳过 NVIDIA 版：当前目录没有 NvAPIWrapper.dll（在 AMD 机器上这是正常的）。" -ForegroundColor Yellow
     Write-Host "  只编译通用版。要编 NVIDIA 版，请把 NvAPIWrapper.dll 放到 $root 下。" -ForegroundColor Yellow
 }
 
-# ---- 通用版（不含 NVAPI）：给 AMD / Intel 用户 ----
+# ---- 通用版（不含 NVAPI）：给 AMD 用户 ----
 $genericExe = Join-Path $runDir 'PortalJump-generic.exe'
 $genericArgs = @(
     '/nologo', '/utf8output', '/codepage:65001',
@@ -127,12 +127,31 @@ if ($LASTEXITCODE -ne 0) {
     throw "通用版编译失败（exit=$LASTEXITCODE）"
 }
 $gexe = Get-Item $genericExe
-Write-Host ("编译成功: {0}  ({1:N0} 字节)  ← 通用版，AMD / Intel 用，不需要 NvAPIWrapper.dll" -f $gexe.FullName, $gexe.Length) -ForegroundColor Green
+Write-Host ("编译成功: {0}  ({1:N0} 字节)  ← 通用版，AMD 用，不需要 NvAPIWrapper.dll" -f $gexe.FullName, $gexe.Length) -ForegroundColor Green
+
+# ---- 仅分辨率版：完全不碰缩放，只切分辨率 ----
+# 这是"零厂商依赖"的版本：任何显卡都能用，缩放方式由用户在驱动面板里设好，
+# 程序切换分辨率时驱动会沿用。最不容易出问题，适合只想要"自动切分辨率"的用户。
+$resOnlyExe = Join-Path $runDir 'PortalJump-resonly.exe'
+$resOnlyArgs = @(
+    '/nologo', '/utf8output', '/codepage:65001',
+    '/target:winexe', '/optimize+',
+    '/define:RESOLUTION_ONLY',
+    "/out:$resOnlyExe"
+) + $commonRefs + $icoArg + $genericSources
+
+$rOut = & $csc @resOnlyArgs 2>&1 | Out-String -Width 400
+if ($LASTEXITCODE -ne 0) {
+    Write-Host $rOut -ForegroundColor Red
+    throw "仅分辨率版编译失败（exit=$LASTEXITCODE）"
+}
+$resOnlyItem = Get-Item $resOnlyExe
+Write-Host ("编译成功: {0}  ({1:N0} 字节)  ← 仅分辨率版，任何显卡通用，不碰缩放" -f $resOnlyItem.FullName, $resOnlyItem.Length) -ForegroundColor Green
 
 # ---- WPF 界面进程（-Ui）：用系统自带的 MSBuild 4.8 编译 XAML 工程，不需要 .NET SDK ----
 # csproj 会按 NvAPIWrapper.dll 是否存在自动选版本，并输出到不同子目录：
 #   PortalJump\nvidia\PortalJump.UI.exe   ← NVIDIA 版界面（含自定义分辨率窗口）
-#   PortalJump\generic\PortalJump.UI.exe  ← 通用版界面（AMD / Intel）
+#   PortalJump\generic\PortalJump.UI.exe  ← 通用版界面（AMD）
 # 所以这里要编两次（有 NVAPI 时），分别拿到两个界面 exe。
 $uiExeNv = Join-Path $runDir 'nvidia\PortalJump.UI.exe'
 $uiExeGen = Join-Path $runDir 'generic\PortalJump.UI.exe'
@@ -263,8 +282,8 @@ pause
         Write-Host "跳过 NVIDIA 分发包（没有 NvAPIWrapper.dll）" -ForegroundColor Yellow
     }
 
-    # ============ 包 2：通用版（AMD / Intel，不带 NvAPIWrapper.dll）============
-    $pkgG = Join-Path $distRoot "折返跃迁v$version-AMD或Intel显卡版"
+    # ============ 包 2：通用版（AMD，不带 NvAPIWrapper.dll）============
+    $pkgG = Join-Path $distRoot "折返跃迁v$version-AMD显卡版"
     if (Test-Path $pkgG) { Remove-Item $pkgG -Recurse -Force }
     New-Item -ItemType Directory -Force -Path $pkgG | Out-Null
 
@@ -273,8 +292,19 @@ pause
     # 故意不复制 NvAPIWrapper.dll —— 这就是"不需要 NVIDIA"的证明
     Copy-CommonFiles $pkgG $uiExeGen
 
-    Write-Host "已产出分发包（通用版，AMD/Intel）: $pkgG" -ForegroundColor Green
+    Write-Host "已产出分发包（通用版，AMD）: $pkgG" -ForegroundColor Green
     Get-ChildItem $pkgG | Select-Object Name, Length | Format-Table -AutoSize | Out-String | Write-Host
+
+    # ============ 包 3：仅分辨率版（任何显卡，完全不碰缩放）============
+    $pkgR = Join-Path $distRoot "折返跃迁v$version-仅分辨率版"
+    if (Test-Path $pkgR) { Remove-Item $pkgR -Recurse -Force }
+    New-Item -ItemType Directory -Force -Path $pkgR | Out-Null
+
+    Copy-Item $resOnlyExe (Join-Path $pkgR $exeName) -Force
+    # 同样不带 NvAPIWrapper.dll
+    Copy-CommonFiles $pkgR $uiExeGen
+
+    Write-Host "已产出分发包（仅分辨率版，任何显卡）: $pkgR" -ForegroundColor Green
 
     # 外发用的"先看这里"：给非技术用户看的，3 步上手 + 免责声明
     # UTF-8 带 BOM 写，记事本打开中文才不乱码
@@ -335,36 +365,67 @@ pause
 折返跃迁 Portal Jump $version（通用版）—— 先看这里
 ================================================
 
-你拿到的是【通用版】，适用于 AMD、Intel 以及其它任何显卡。
+你拿到的是【AMD 版】，适用于 AMD 显卡。
   这个版本不需要 NVIDIA 驱动，也不需要 NvAPIWrapper.dll（包里本来就没有）。
-  缩放走 Windows 自带的显示接口，AMD / Intel 用户也能切换缩放方式。
 
-【重要：这个版本尚未在 AMD 实机上验证过】
-  做这个版本时只有一台 NVIDIA 机器，没法在真正的 AMD 显卡上测试。
-  已经确认的是：能启动、能常驻托盘、能切分辨率、界面能打开、不会崩。
-  尚未确认的是：缩放方式（全屏铺满 / 保持比例 / 居中）在 AMD 驱动上是否真的生效。
+【AMD 显卡：已通过官方 ADLX 在 RX 9070 XT 实机验证】
+  · 缩放方式（全屏铺满 / 保持比例 / 居中）走 AMD 官方 ADLX 接口，精确生效、可回读；
+  · 「整数缩放」走 ADLX（程序会先自动打开 GPU scaling 再启用整数缩放）；
+  · 「创建自定义分辨率」走 ADLX：在设置界面点「创建自定义分辨率」，
+    填好宽高（刷新率与时序沿用当前模式）即可写入 AMD 驱动，过程不黑屏；
+    创建后回到主界面，在分辨率下拉里选中它并「应用」即可切换。
+  · 缩放通路不降级：若 ADLX 不可用会明确报错，不会偷偷改走不可靠的通用接口。
 
-  所以请你先跑一次自检，看结果再决定用不用：
-    双击「环境自检.cmd」，打开生成的 portal-jump-selftest.txt
-    找到 [缩放自检] 那一段，看三行是不是都写「驱动接受」：
-      全屏铺满（自动选择执行者）：驱动接受
-      保持比例（自动选择执行者）：驱动接受
-      居中不缩放（自动选择执行者）：驱动接受
+先跑一次自检确认环境（建议用管理员身份运行）：
+  双击「环境自检.cmd」，打开生成的 portal-jump-selftest.txt，
+  看到「缩放通路：AMD ADLX」「ADLX 桥接：已就绪」「自定义分辨率：支持」即正常。
+  若用远程桌面 / 向日葵会话，ADLX 枚举不到物理显示器，请在本机直连显示器时使用。
 
-    · 三行都是「驱动接受」→ 缩放可以用
-    · 有「驱动拒绝」→ 缩放这条路在你的驱动上不通，请把自检报告发给作者
-
-通用版的限制
-  · 「整数缩放」不可用（这是 NVIDIA 驱动专有能力）。
-  · 「创建自定义分辨率」不可用（同上）。
-  · 其余功能——按程序自动切分辨率、切缩放方式、托盘常驻——设计上可用（见上方验证说明）。
+小提示
+  · 自定义分辨率在复制 / Eyefinity 多屏模式下不可用，请先切到单屏独立显示。
+  · 其余功能——按程序自动切分辨率、切缩放方式、托盘常驻——均可用。
 
 如果你其实用的是 NVIDIA 显卡
-  请改用 NVIDIA 版（文件名里带 NVIDIA 的那个包），功能更全、且已验证。
+  请改用 NVIDIA 版（文件名里带 NVIDIA 的那个包），功能更全。
 "@ + $readmeCommon
 
-    [IO.File]::WriteAllText((Join-Path $pkg '先看这里.txt'), $readmeNv, (New-Object Text.UTF8Encoding($true)))
+    $readmeResOnly = @"
+折返跃迁 Portal Jump $version（仅分辨率版）—— 先看这里
+================================================
+
+你拿到的是【仅分辨率版】。
+  这个版本只做一件事：按程序自动切换分辨率。
+  它**完全不碰缩放设置**，所以任何显卡（NVIDIA / AMD）都能用，也不会因为
+  缩放设不上而出问题。这是最稳的一个版本。
+
+怎么用
+  1) 先在显卡驱动控制面板里把缩放方式设置一次（只需一次）：
+       · NVIDIA：NVIDIA 控制面板 → 显示 → 调整桌面尺寸和位置
+       · AMD   ：AMD Software → 设置 → 显示 → 缩放模式
+     选好你要的缩放方式（全屏铺满 / 保持比例 / 居中不缩放），点应用。
+  2) 双击 PortalJump.exe，右下角托盘出现图标。
+  3) 右键托盘 →「打开设置界面」→ 新增预设：填名称、选分辨率、关联程序 → 保存。
+  4) 之后打开那个程序，就会自动切到对应分辨率，缩放方式沿用你在第 1 步设的。
+
+  之所以要你先手动设缩放：这个版本不调用任何显卡厂商接口，只能靠驱动自己的设置。
+  好处是零依赖、跨厂商、极稳；代价是缩放方式不能按预设自动变。
+
+适用场景
+  · 你只需要"打开游戏自动切分辨率"
+  · 你的显卡不是 NVIDIA，也不想折腾缩放接口
+  · 你希望程序尽可能不出问题
+
+不适合的场景
+  · 你想让不同预设用不同的缩放方式（那需要完整版）
+  · 你需要整数缩放或创建自定义分辨率
+
+"@ + $readmeCommon
+
+    if ($hasNvapi) {
+        [IO.File]::WriteAllText((Join-Path $pkg '先看这里.txt'), $readmeNv, (New-Object Text.UTF8Encoding($true)))
+    }
     [IO.File]::WriteAllText((Join-Path $pkgG '先看这里.txt'), $readmeGen, (New-Object Text.UTF8Encoding($true)))
+    [IO.File]::WriteAllText((Join-Path $pkgR '先看这里.txt'), $readmeResOnly, (New-Object Text.UTF8Encoding($true)))
 
     # ============ 包 3：AMD 开发包（源码 + 工具 + 文档，不含任何编译产物）============
     # 给"要在 AMD 机器上继续开发/验证"的人用。
@@ -409,10 +470,15 @@ pause
             }
     }
 
-    foreach ($f in 'build.ps1', 'AMD机器开发指南.md', '项目交接.md') {
+    # 附带根目录下的开发说明文档（若存在）。这些文档仅供开发/交接使用，
+    # 不在公开仓库里，所以逐个 Test-Path 容错，缺了也不影响构建。
+    foreach ($f in 'build.ps1') {
         $p = Join-Path $root $f
         if (Test-Path $p) { Copy-Item $p $pkgD -Force }
     }
+    Get-ChildItem $root -File -Filter '*.md' |
+        Where-Object { $_.Name -ne 'README.md' -and $_.Name -ne 'LICENSE' } |
+        ForEach-Object { Copy-Item $_.FullName $pkgD -Force }
 
     Write-Host "已产出开发包（AMD 源码包）: $pkgD" -ForegroundColor Green
 
@@ -423,7 +489,8 @@ pause
         if ($hasNvapi) {
             $zipTargets += @{ Dir = $pkg; Name = "折返跃迁v$version-NVIDIA显卡版.zip" }
         }
-        $zipTargets += @{ Dir = $pkgG; Name = "折返跃迁v$version-AMD或Intel显卡版.zip" }
+        $zipTargets += @{ Dir = $pkgG; Name = "折返跃迁v$version-AMD显卡版.zip" }
+        $zipTargets += @{ Dir = $pkgR; Name = "折返跃迁v$version-仅分辨率版.zip" }
         $zipTargets += @{ Dir = $pkgD; Name = "折返跃迁v$version-AMD开发源码包.zip" }
         foreach ($pair in $zipTargets) {
             $zipPath = Join-Path $distRoot $pair.Name

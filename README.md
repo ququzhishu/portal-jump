@@ -40,25 +40,34 @@
 
 ## 运行要求
 
-- **NVIDIA 显卡** + 官方驱动（缩放走 NVIDIA NVAPI 接口）
+| 你的显卡 | 缩放方式 | 整数缩放 | 创建自定义分辨率 |
+|---|---|---|---|
+| **NVIDIA** | NVIDIA NVAPI | 支持 | 支持 |
+| **AMD** | AMD 官方 ADLX | 支持 | 支持 |
+| 其它 | Windows 原生接口 | — | 不在程序内提供 |
+
 - Windows 10 / 11（64 位）
 - .NET Framework 4.8（Win10 1903+ 与 Win11 已内置）
-
-> 本版本仅支持 NVIDIA 显卡。AMD / Intel 用户暂不适用。
 
 ---
 
 ## 下载
 
-到 [Releases](../../releases) 页面下载 `折返跃迁vX.Y-NVIDIA显卡版.zip`，解压后双击 `PortalJump.exe` 即可，无需安装。
+到 [Releases](../../releases) 页面下载对应你显卡的压缩包，解压后双击 `PortalJump.exe` 即可，无需安装。
+
+| 包名 | 适用 | 说明 |
+|---|---|---|
+| `折返跃迁vX.Y-NVIDIA显卡版.zip` | NVIDIA 显卡 | 缩放走 NVAPI，功能最全 |
+| `折返跃迁vX.Y-AMD显卡版.zip` | AMD 显卡 | 缩放走 AMD 官方 ADLX |
+| `折返跃迁vX.Y-合并版.zip` | NVIDIA 或 AMD | 一个包，启动时自动识别显卡并选择通路 |
 
 包里包含：
 
 ```
 PortalJump.exe        托盘主程序
 PortalJump.UI.exe     设置界面
-NvAPIWrapper.dll      NVAPI 封装（必须有，请不要删）
-先看这里.txt / 使用说明.md / 部署说明.md / 环境自检.cmd
+NvAPIWrapper.dll      NVAPI 封装（NVIDIA / 合并版需要，请不要删）
+使用说明.md / LICENSE.txt / 环境自检.cmd
 presets.example.ini + 图标素材
 ```
 
@@ -134,12 +143,28 @@ cd res-switch
 产出：
 
 ```
-PortalJump\PortalJump.exe            托盘主程序
-PortalJump\nvidia\PortalJump.UI.exe  设置界面
+PortalJump\PortalJump.exe            托盘主程序（NVIDIA 版）
+PortalJump\PortalJump-generic.exe    托盘主程序（AMD 版）
+PortalJump\PortalJump-resonly.exe    托盘主程序（仅分辨率版）
+PortalJump\nvidia\PortalJump.UI.exe  NVIDIA 版界面
+PortalJump\generic\PortalJump.UI.exe AMD 版界面
 dist\                                分发包
 ```
 
-也可以双击 `build.cmd` 一键构建。
+构建**合并版**（一个 exe 同时带 NVAPI 与 ADLX，运行时自动识别显卡）：
+
+```powershell
+$csc = "$env:WINDIR\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
+& $csc /nologo /utf8output /codepage:65001 /target:winexe /optimize+ `
+  /define:UNIFIED /define:WITH_NVAPI /out:PortalJump\unified\PortalJump.exe `
+  /r:System.dll /r:System.Core.dll /r:System.Drawing.dll /r:System.Windows.Forms.dll `
+  /r:NvAPIWrapper.dll src\*.cs
+
+$msbuild = "$env:WINDIR\Microsoft.NET\Framework64\v4.0.30319\MSBuild.exe"
+& $msbuild src-ui\PortalJump.UI.csproj /p:Configuration=Release /p:Unified=true
+```
+
+> 若源码里还没有 `UNIFIED` 分支，先跑一次 `scripts\apply-unified-patch.ps1 -Root .`（幂等）。
 
 ### 代码结构
 
@@ -147,12 +172,17 @@ dist\                                分发包
 src\                     托盘进程 + 界面共用的核心
   Scaling.cs             缩放语义层
   DisplayConfigBackend.cs 显示配置后端（Win32 DEVMODE + CCD）
-  NvapiBridge.cs         NVAPI 隔离层
-  Switcher.cs            切换逻辑、回读校验
+  NvapiBridge.cs         NVAPI 隔离层（NVIDIA 通路）
+  AdlxBridge.cs          ADLX 桥接层（AMD 通路，运行时动态加载 amdadlx64.dll）
+  GpuExtensions.cs       版本能力开关（编译符号：WITH_NVAPI / UNIFIED / RESOLUTION_ONLY）
+  Switcher.cs            切换逻辑、后端选择、回读校验
   Program.cs             入口、托盘、进程监控、看门狗
 src-ui\                  界面进程（WPF）
 tools\                   回归测试与诊断工具
 ```
+
+> 两套厂商桥接都是**运行时**加载（`NvAPIWrapper.dll` / `amdadlx64.dll`），
+> 所以识别到 A 卡时会完全跳过 NVAPI、识别到 N 卡时也不会去碰 ADLX。
 
 几个改代码时容易踩的点：
 
@@ -167,20 +197,33 @@ tools\                   回归测试与诊断工具
 
 ## 测试
 
+测试工具都是单个 `.cs` 文件，用系统自带的 `csc.exe` 编一下就能跑（详见 `tools\README.md`）：
+
 ```powershell
-.\tools\ConfigTest.exe  .\PortalJump\presets.ini   # 配置层回归（17 项）
-.\tools\ScalingTest.exe                            # 缩放语义 / 旧配置迁移（39 项）
-.\tools\SwitchTest.exe  .\PortalJump\PortalJump.exe # 真实切换（15 项，会改屏幕，自动还原）
-.\tools\WatchdogTest.exe .\PortalJump\PortalJump.exe .\tools\rsprobe-game.exe  # 看门狗
-.\tools\UiProbe.exe     .\PortalJump\PortalJump.UI.exe  # 界面自动化
-.\tools\TrayProbe.exe   .\PortalJump\PortalJump.exe .\tools\rsprobe-game.exe   # 托盘端到端
+$csc = "$env:WINDIR\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
+cd tools
+& $csc /nologo /utf8output /codepage:65001 /target:exe /out:ConfigTest.exe ConfigTest.cs
+& $csc /nologo /utf8output /codepage:65001 /target:exe /out:SwitchTest.exe SwitchTest.cs ..\src\Scaling.cs
+& $csc /nologo /utf8output /codepage:65001 /target:exe /out:WatchdogTest.exe WatchdogTest.cs
+
+.\ConfigTest.exe  ..\PortalJump\presets.ini            # 配置层回归
+.\SwitchTest.exe  ..\PortalJump\PortalJump.exe         # 真实切换（会改屏幕，自动还原）
+.\WatchdogTest.exe ..\PortalJump\PortalJump.exe .\rsprobe-game.exe  # 看门狗
+```
+
+AMD 通路（在 AMD 机器上跑，详见 `tools\README.md`）：
+
+```powershell
+& $csc /nologo /unsafe /target:exe /out:adlx-diag.exe adlx-diag.cs
+.\adlx-diag.exe   # 纯只读：枚举显示器、报告 ADLX 三类缩放接口是否可用
 ```
 
 ---
 
 ## 已知限制
 
-- 仅支持 NVIDIA 显卡（缩放依赖 NVAPI）。
+- **NVIDIA 与 AMD 已实机验证**；其它显卡走 Windows 原生接口，仅基础缩放（不在程序内提供整数缩放与自定义分辨率）。
+- **合并版的 AMD 通路尚未实机验证**（代码与已验证的 AMD 版一致，但"自动识别分流"这一整合形态需你在 A 卡机器上跑一次自检确认）。
 - 进程检测是轮询（约 2 秒一次），不是事件驱动；极短命的进程可能漏掉。
 - 切换后有 12 秒看门狗（最多纠正 3 次），超过就不再纠缠。
 - 没有安装包，升级就是覆盖文件夹；配置在程序目录或 `%APPDATA%\PortalJump\`，不会被覆盖。
@@ -196,7 +239,7 @@ tools\                   回归测试与诊断工具
 使用前请自行确认显示器与驱动支持你要设置的模式；因使用本工具造成的任何直接或间接损失
 （含数据丢失、工作中断、硬件损坏），作者不承担任何责任。
 
-本工具为个人免费作品，按「现状」提供，不提供任何担保，与 NVIDIA 公司无关联。
+本工具为个人免费作品，按「现状」提供，不提供任何担保，与 NVIDIA、AMD 公司无关联。
 继续使用即表示接受以上内容，不同意请不要运行。
 
 ---

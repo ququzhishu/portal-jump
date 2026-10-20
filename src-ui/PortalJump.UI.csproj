@@ -23,27 +23,37 @@
     <PlatformTarget>x64</PlatformTarget>
 
     <!-- 关键：按 NvAPIWrapper.dll 是否存在决定编哪个版本。
-         必须放在 OutputPath / DefineConstants 之前，MSBuild 是顺序求值的。 -->
+         必须放在 OutputPath / DefineConstants 之前，MSBuild 是顺序求值的。
+
+         ★ 合并版（/p:Unified=true）：定义 UNIFIED，同时编入 NVAPI 与 ADLX 两套桥接，
+           运行时由厂商识别决定走哪条路。合并版也必须在源根目录放 NvAPIWrapper.dll
+           （它是编译期引用，缺了编不过）。 -->
     <HasNvapi Condition="Exists('..\NvAPIWrapper.dll')">true</HasNvapi>
     <HasNvapi Condition="!Exists('..\NvAPIWrapper.dll')">false</HasNvapi>
+    <IsUnified Condition=" '$(IsUnified)' == '' ">false</IsUnified>
+    <IsUnified Condition=" '$(Unified)' == 'true' AND '$(HasNvapi)' == 'true' ">true</IsUnified>
 
-    <!-- 输出目录按版本分开，避免通用版界面覆盖 NVIDIA 版界面 -->
-    <OutputPath Condition=" '$(HasNvapi)' == 'true' ">..\PortalJump\nvidia\</OutputPath>
-    <OutputPath Condition=" '$(HasNvapi)' != 'true' ">..\PortalJump\generic\</OutputPath>
+    <!-- 输出目录按版本分开，避免各版界面互相覆盖 -->
+    <OutputPath Condition=" '$(IsUnified)' == 'true' ">..\PortalJump\unified\</OutputPath>
+    <OutputPath Condition=" '$(IsUnified)' != 'true' AND '$(HasNvapi)' == 'true' ">..\PortalJump\nvidia\</OutputPath>
+    <OutputPath Condition=" '$(IsUnified)' != 'true' AND '$(HasNvapi)' != 'true' ">..\PortalJump\generic\</OutputPath>
     <WarningLevel>4</WarningLevel>
     <LangVersion>5</LangVersion>
     <ApplicationIcon Condition="Exists('..\assets\PortalJump.ico')">..\assets\PortalJump.ico</ApplicationIcon>
 
-    <DefineConstants Condition=" '$(HasNvapi)' == 'true' ">TRACE;WITH_NVAPI</DefineConstants>
-    <DefineConstants Condition=" '$(HasNvapi)' != 'true' ">TRACE</DefineConstants>
+    <DefineConstants Condition=" '$(IsUnified)' == 'true' ">TRACE;UNIFIED;WITH_NVAPI</DefineConstants>
+    <DefineConstants Condition=" '$(IsUnified)' != 'true' AND '$(HasNvapi)' == 'true' ">TRACE;WITH_NVAPI</DefineConstants>
+    <DefineConstants Condition=" '$(IsUnified)' != 'true' AND '$(HasNvapi)' != 'true' ">TRACE</DefineConstants>
   </PropertyGroup>
 
   <!-- 编译时提示正在编哪个版本，避免"以为编的是 NVIDIA 版其实是通用版" -->
   <Target Name="ReportEdition" BeforeTargets="Build">
-    <Message Importance="high" Condition=" '$(HasNvapi)' == 'true' "
+    <Message Importance="high" Condition=" '$(IsUnified)' == 'true' "
+             Text="界面进程：合并版（NVAPI + ADLX 双桥接，按显卡自动选择）" />
+    <Message Importance="high" Condition=" '$(IsUnified)' != 'true' AND '$(HasNvapi)' == 'true' "
              Text="界面进程：NVIDIA 版（含自定义分辨率窗口）" />
-    <Message Importance="high" Condition=" '$(HasNvapi)' != 'true' "
-             Text="界面进程：通用版（AMD/Intel，无 NvAPIWrapper.dll，已排除自定义分辨率窗口）" />
+    <Message Importance="high" Condition=" '$(IsUnified)' != 'true' AND '$(HasNvapi)' != 'true' "
+             Text="界面进程：AMD 版（无 NvAPIWrapper.dll；AMD 经 ADLX 支持缩放与自定义分辨率窗口）" />
   </Target>
 
   <ItemGroup>
@@ -76,7 +86,12 @@
       <SubType>Designer</SubType>
     </Page>
     <!-- 自定义分辨率窗口只在 NVIDIA 版里编 -->
-    <Page Include="CustomResolutionWindow.xaml" Condition=" '$(HasNvapi)' == 'true' ">
+    <Page Include="CustomResolutionWindow.xaml" Condition=" '$(IsUnified)' == 'true' OR '$(HasNvapi)' == 'true' ">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <!-- AMD 自定义分辨率窗口：走 ADLX，不依赖 NVAPI，所有版本都编译 -->
+    <Page Include="CustomResolutionWindowAmd.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>
@@ -96,8 +111,11 @@
     <Compile Include="AboutWindow.xaml.cs"><DependentUpon>AboutWindow.xaml</DependentUpon><SubType>Code</SubType></Compile>
     <Compile Include="SettingsWindow.xaml.cs"><DependentUpon>SettingsWindow.xaml</DependentUpon><SubType>Code</SubType></Compile>
     <Compile Include="ProcessPickerWindow.xaml.cs"><DependentUpon>ProcessPickerWindow.xaml</DependentUpon><SubType>Code</SubType></Compile>
-    <Compile Include="CustomResolutionWindow.xaml.cs" Condition=" '$(HasNvapi)' == 'true' ">
+    <Compile Include="CustomResolutionWindow.xaml.cs" Condition=" '$(IsUnified)' == 'true' OR '$(HasNvapi)' == 'true' ">
       <DependentUpon>CustomResolutionWindow.xaml</DependentUpon><SubType>Code</SubType>
+    </Compile>
+    <Compile Include="CustomResolutionWindowAmd.xaml.cs">
+      <DependentUpon>CustomResolutionWindowAmd.xaml</DependentUpon><SubType>Code</SubType>
     </Compile>
     <Compile Include="TrialConfirmWindow.xaml.cs"><DependentUpon>TrialConfirmWindow.xaml</DependentUpon><SubType>Code</SubType></Compile>
     <Compile Include="Art.cs" />
@@ -113,6 +131,7 @@
     <Compile Include="..\src\Scaling.cs"><Link>Core\Scaling.cs</Link></Compile>
     <Compile Include="..\src\GpuExtensions.cs"><Link>Core\GpuExtensions.cs</Link></Compile>
     <Compile Include="..\src\NvapiBridge.cs"><Link>Core\NvapiBridge.cs</Link></Compile>
+    <Compile Include="..\src\AdlxBridge.cs"><Link>Core\AdlxBridge.cs</Link></Compile>
     <Compile Include="..\src\DisplayConfigBackend.cs"><Link>Core\DisplayConfigBackend.cs</Link></Compile>
     <Compile Include="..\src\DisplayInfo.cs"><Link>Core\DisplayInfo.cs</Link></Compile>
     <Compile Include="..\src\Switcher.cs"><Link>Core\Switcher.cs</Link></Compile>

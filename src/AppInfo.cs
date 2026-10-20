@@ -28,7 +28,7 @@ namespace PortalJump
         public const string EnglishName = "Portal Jump";
 
         /// <summary>程序说明（关于页 / 帮助）—— 只讲功能，不讲使用场景</summary>
-        public const string Description = "按程序自动切换显示分辨率与缩放模式（NVIDIA / AMD / Intel 通用）";
+        public const string Description = "按程序自动切换显示分辨率与缩放模式（NVIDIA / AMD 通用）";
 
         /// <summary>一句话功能概括（托盘提示用）</summary>
         public const string Tagline = "托盘常驻的显示模式自动切换工具";

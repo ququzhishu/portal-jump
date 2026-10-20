@@ -36,6 +36,16 @@ portal-jump-selftest.txt
 
 # ---- 历史素材候选图（200MB+，仅设计过程用）----
 assets/candidates/
+assets/candidates-*/
+docs/video/
+
+# ---- 本地备份与同步中间目录（绝不提交）----
+PortalJump-backup-*/
+_sync-backup-*/
+_amd-verify/
+_release-build/
+_unified/
+_rb2/
 
 # ---- 编辑器 / 系统 ----
 .vs/

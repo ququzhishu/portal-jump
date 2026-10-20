@@ -76,8 +76,18 @@ namespace PortalJump.UI
 
             PresetList.ItemsSource = _rows;
 
-            // 缩放方式下拉（与厂商无关的语义选项，AMD / Intel 也能选）
+            // 缩放方式下拉（与厂商无关的语义选项，AMD 也能选）
             foreach (ScalingSpec s in Preset.ScalingChoices) CmbScaling.Items.Add(ScalingNames.Label(s));
+
+            // 【仅分辨率版】不设置缩放：把下拉禁用并说明原因，
+            // 而不是让它可选但实际不生效（那样才是误导用户）。
+            if (!GpuExtensions.SupportsScaling)
+            {
+                CmbScaling.IsEnabled = false;
+                CmbScaling.ToolTip = "本版本只切换分辨率，不改缩放方式。\n"
+                    + "请在显卡驱动控制面板里设置缩放方式，切换分辨率时会自动沿用。";
+                CmbScaling.SelectedIndex = 0;   // 显示"不改动"
+            }
 
             Loaded += delegate
             {
@@ -513,42 +523,63 @@ namespace PortalJump.UI
 
         void OnCreateCustomResolution(object sender, RoutedEventArgs e)
         {
-            // 通用版（不带 NVAPI）里根本没有这个窗口，直接说明原因。
-            // 用编译符号判断，因为通用版压根不编译 CustomResolutionWindow。
-            if (!GpuExtensions.SupportsCustomResolution)
+            // 运行时能力：NVIDIA 走 NVAPI，AMD 走 ADLX（方案 B）。
+            bool nv = GpuExtensions.SupportsCustomResolution && Switcher.NvapiReady;
+            bool amd = Switcher.Vendor == GpuVendor.Amd && Switcher.AdlxReady;
+
+            // AMD 桥接就绪后，还要确认显示器层面真的支持（复制 / Eyefinity 模式不支持）
+            if (amd)
+            {
+                bool sup;
+                string supDetail;
+                if (Switcher.AmdCustomResolutionSupported(out sup, out supDetail) && !sup)
+                {
+                    MessageBox.Show(this, supDetail, AppInfo.Title,
+                        MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
+                }
+            }
+
+            if (!nv && !amd)
             {
                 MessageBox.Show(this,
-                    GpuExtensions.UnavailableReason("创建自定义分辨率"),
+                    Switcher.CustomResolutionUnavailableReason(),
                     AppInfo.Title, MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
 
-            if (!Switcher.NvapiReady)
-            {
-                MessageBox.Show(this,
-                    "创建自定义分辨率是 NVIDIA 驱动专有的功能（通过 NVAPI），当前不可用：\n"
-                    + Switcher.NvapiError
-                    + "\n\n注意：这只是“自定义分辨率”这一项不可用，"
-                    + "切换分辨率和缩放方式在 AMD / Intel 显卡上照常可用。",
-                    AppInfo.Title, MessageBoxButton.OK, MessageBoxImage.Information);
-                return;
-            }
-
-#if WITH_NVAPI
             int w = ParseInt(TxtW.Text), h = ParseInt(TxtH.Text);
             if (w < Preset.MinDimension) w = 1920;
             if (h < Preset.MinDimension) h = 1080;
 
-            var dlg = new CustomResolutionWindow(w, h);
-            dlg.Owner = this;
-            if (dlg.ShowDialog() == true)
+#if WITH_NVAPI || UNIFIED
+            if (nv)
             {
-                RefreshResolutionCombo();
-                ChkFromCurrent(dlg.ResultWidth, dlg.ResultHeight);
-                RefreshEnvironment();
-                SetStatus("自定义分辨率 " + dlg.ResultWidth + "x" + dlg.ResultHeight + " 已写入驱动，现在可以直接应用或保存。");
+                var nvDlg = new CustomResolutionWindow(w, h);
+                nvDlg.Owner = this;
+                if (nvDlg.ShowDialog() == true)
+                {
+                    RefreshResolutionCombo();
+                    ChkFromCurrent(nvDlg.ResultWidth, nvDlg.ResultHeight);
+                    RefreshEnvironment();
+                    SetStatus("自定义分辨率 " + nvDlg.ResultWidth + "x" + nvDlg.ResultHeight + " 已写入驱动，现在可以直接应用或保存。");
+                }
+                return;
             }
 #endif
+
+            if (amd)
+            {
+                var dlg = new CustomResolutionWindowAmd(w, h);
+                dlg.Owner = this;
+                if (dlg.ShowDialog() == true)
+                {
+                    RefreshResolutionCombo();
+                    ChkFromCurrent(dlg.ResultWidth, dlg.ResultHeight);
+                    RefreshEnvironment();
+                    SetStatus("AMD 自定义分辨率 " + dlg.ResultWidth + "x" + dlg.ResultHeight + " 已写入驱动，现在可以直接应用或保存。");
+                }
+            }
         }
 
         void OnAbout(object sender, RoutedEventArgs e)

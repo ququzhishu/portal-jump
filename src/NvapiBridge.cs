@@ -1,4 +1,4 @@
-#if WITH_NVAPI
+#if WITH_NVAPI || UNIFIED
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -493,9 +493,14 @@ namespace PortalJump
         {
             get
             {
+                // 按版本说人话：仅分辨率版本来就不需要 NVAPI，别让用户以为缺了组件
+                if (GpuExtensions.ResolutionOnly)
+                {
+                    return "本版本只切换分辨率，不需要 NVAPI 组件（这是正常的）。";
+                }
                 return "当前为通用版（未包含 NVAPI 组件）。"
-                    + "分辨率与缩放照常可用（走 Windows 原生接口）；"
-                    + "整数缩放与创建自定义分辨率需要 NVIDIA 版。";
+                    + "分辨率与缩放照常可用；AMD 显卡的整数缩放与创建自定义分辨率经官方 ADLX 支持，"
+                    + "NVIDIA 专有功能才需要 NVIDIA 版。";
             }
         }
 
