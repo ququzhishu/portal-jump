@@ -4,7 +4,11 @@
 > 打开游戏自动切到游戏分辨率，退出后自动切回桌面。
 
 <p align="center">
-  <img src="docs/screenshot-settings.jpg" alt="设置界面" width="720">
+  <img src="docs/screenshot-settings.jpg" alt="设置界面" width="820">
+</p>
+
+<p align="center">
+  <sub>设置界面：左侧预设列表，右侧预设详情与当前显卡状态</sub>
 </p>
 
 ---
@@ -83,6 +87,19 @@ presets.example.ini + 图标素材
 **建议先做这一步**：NVIDIA 控制面板 →「显示」→「调整桌面尺寸和位置」，
 取消勾选「覆盖由游戏和程序设置的缩放模式」，点应用。
 不做这步可能分辨率能切但缩放不变——这是 NVIDIA 上最常见的坑。
+
+---
+
+## 自定义分辨率
+
+列表里没有想要的分辨率时，用「创建自定义分辨率…」交给驱动新建一个。
+先试用，画面正常再保留；失败不会留下副作用。
+
+<p align="center">
+  <img src="docs/screenshot-custom.jpg" alt="创建自定义分辨率" width="620">
+</p>
+
+---
 
 ---
 
