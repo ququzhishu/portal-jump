@@ -24,7 +24,7 @@ namespace PortalJump
         PresetListBox _presetList;
         FlatButton _btnAdd, _btnCopy, _btnDelete, _btnUp, _btnDown;
         SplitContainer _split;
-        BarPanel _status, _footer;
+        BarPanel _status, _footer, _hwBar;
 
         // 预设详情
         TextBox _txtName;
@@ -42,7 +42,8 @@ namespace PortalJump
         {
             _config = config;
 
-            Text = AppInfo.Title + " 设置 — 分辨率 / 缩放 / 程序关联";
+            // 标题只留程序名，去掉「设置 — 分辨率 / 缩放 / 程序关联」这类冗余说明
+            Text = AppInfo.Title;
             StartPosition = FormStartPosition.CenterScreen;
             AutoScaleMode = AutoScaleMode.None;      // 由 UiKit.S() 手动缩放，避免二次缩放
             Font = UiKit.FontBody;
@@ -54,7 +55,9 @@ namespace PortalJump
             // 高缩放机器上（本机 3840x2160 用 300%，逻辑桌面只有 1280x720）窗口不能超出工作区，
             // 否则底栏按钮会被屏幕切掉；放不下的内容由卡片的滚动条兜底（见 Scrollable）。
             // 顶部不再有品牌横幅，所以窗口高度比上一版矮了 100 逻辑像素。
-            Size desired = UiKit.Sz(1120, 580);
+            // 窗口高度 640 → 700：底部新增一条独立的型号参数栏（64 逻辑高），
+            // 所以整体加高 60，保证中间两张卡片不被压缩。
+            Size desired = UiKit.Sz(1120, 700);
             int maxW, maxH;
             try
             {
@@ -83,13 +86,15 @@ namespace PortalJump
 
         void BuildUi()
         {
-            // 主窗口不放品牌横幅（程序名已经在标题栏里，界面留白给内容）；
-            // 顶部只保留一条状态条，品牌色靠状态条下沿的渐变细线、卡片标题短条和渐变按钮带出来。
-            // ---------- 状态条：环境信息（左） + 关于 / 重新检测（右） ----------
+            // ---------- 顶部：品牌区（图标 + 软件名），参考 Clash Verge 布局 ----------
+            // 原来的顶部是"显卡 / 当前分辨率 / 通路"两行设备信息，现在挪到底栏。
+            // 顶部专注身份识别（图标 + 名称），设备信息属运行时状态，放底部更合理。
             _status = new BarPanel(false);
             _status.LineOnBottom = true;
             _status.Dock = DockStyle.Top;
-            _status.Height = UiKit.S(76);
+            // 高度 64 → 78：品牌字号放大到 17pt 后需要更多垂直空间，
+            // 否则标题会贴住上下边缘。
+            _status.Height = UiKit.S(78);
 
             var statusGrid = new GlassTable();
             statusGrid.Dock = DockStyle.Fill;
@@ -98,36 +103,29 @@ namespace PortalJump
             statusGrid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
             statusGrid.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, UiKit.S(64)));
             statusGrid.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, UiKit.S(120)));
-            
-            statusGrid.Padding = UiKit.Pad(24, 12, 24, 12);
 
-            var infoBlock = new GlassPanel();
-            infoBlock.Dock = DockStyle.Fill;
-            
-            infoBlock.Padding = UiKit.Pad(0, 2, UiKit.S(20), 0);
+            statusGrid.Padding = UiKit.Pad(12, 6, 24, 6);
 
-            // 左对齐的两行环境信息（两行等高，文字垂直居中，上下基线看起来是齐的）
+            var brand = new BrandHeader();
+            brand.Dock = DockStyle.Fill;
+
+            // 设备信息标签仍然创建、数据源不变（RefreshEnvironment 继续往这两个 Label 写字），
+            // 但它们挂到下面的底栏，不再占顶部。
             _lblEnv = new Label();
             _lblEnv.AutoSize = false;
-            _lblEnv.Dock = DockStyle.Top;
-            _lblEnv.Height = UiKit.S(25);
-            _lblEnv.TextAlign = ContentAlignment.MiddleLeft;
-            _lblEnv.Font = UiKit.FontBody;
-            _lblEnv.ForeColor = UiKit.TextPrimary;
+            _lblEnv.Font = UiKit.FontHint;
+            _lblEnv.ForeColor = UiKit.TextSecondary;
             _lblEnv.AutoEllipsis = true;
+            _lblEnv.UseMnemonic = false;
+            _lblEnv.TextAlign = ContentAlignment.MiddleLeft;
 
             _lblCurrent = new Label();
             _lblCurrent.AutoSize = false;
-            _lblCurrent.Dock = DockStyle.Top;
-            _lblCurrent.Height = UiKit.S(25);
-            _lblCurrent.TextAlign = ContentAlignment.MiddleLeft;
             _lblCurrent.Font = UiKit.FontHint;
-            _lblCurrent.ForeColor = UiKit.TextSecondary;
+            _lblCurrent.ForeColor = UiKit.TextHint;
             _lblCurrent.AutoEllipsis = true;
-
-            // Dock=Top 的堆叠顺序与添加顺序相反
-            infoBlock.Controls.Add(_lblCurrent);
-            infoBlock.Controls.Add(_lblEnv);
+            _lblCurrent.UseMnemonic = false;
+            _lblCurrent.TextAlign = ContentAlignment.MiddleLeft;
 
             var btnAbout = new FlatButton("关于", FlatButton.Kind.Link, 7);
             btnAbout.Size = UiKit.Sz(48, 34);
@@ -146,12 +144,52 @@ namespace PortalJump
                 SetStatus("已重新检测显示器和显卡状态。");
             };
 
-            statusGrid.Controls.Add(infoBlock, 0, 0);
+            statusGrid.Controls.Add(brand, 0, 0);
             statusGrid.Controls.Add(btnAbout, 1, 0);
             statusGrid.Controls.Add(btnRescan, 2, 0);
             _status.Controls.Add(statusGrid);
 
-            // ---------- 底栏 ----------
+            // ---------- 底部独立栏：型号 / 参数（占满整个底边，字号放大）----------
+            // 用户要求：把型号参数单独做成一栏、字放大、占满底部。
+            // 所以它从原来的"底栏左侧两行小字"里抽出来，成为一整条独立横栏，
+            // 位于最底部；上面的底栏只留复选框与操作按钮。
+            _hwBar = new BarPanel(true);
+            _hwBar.LineOnTop = true;
+            _hwBar.Dock = DockStyle.Bottom;
+            _hwBar.Height = UiKit.S(64);
+
+            var hwGrid = new GlassTable();
+            hwGrid.Dock = DockStyle.Fill;
+            hwGrid.ColumnCount = 1;
+            hwGrid.RowCount = 2;
+            hwGrid.RowStyles.Add(new RowStyle(SizeType.Percent, 50f));
+            hwGrid.RowStyles.Add(new RowStyle(SizeType.Percent, 50f));
+            hwGrid.Padding = UiKit.Pad(24, 8, 24, 10);
+
+            // 字号放大：提示级 8.25pt → 10.5pt，正文级 9pt → 11pt。
+            _lblEnv = new Label();
+            _lblEnv.AutoSize = false;
+            _lblEnv.Dock = DockStyle.Fill;
+            _lblEnv.Font = UiKit.FontOf(11f, FontStyle.Bold);     // 显卡型号，加粗更醒目
+            _lblEnv.ForeColor = UiKit.TextPrimary;
+            _lblEnv.AutoEllipsis = true;
+            _lblEnv.UseMnemonic = false;
+            _lblEnv.TextAlign = ContentAlignment.MiddleLeft;
+
+            _lblCurrent = new Label();
+            _lblCurrent.AutoSize = false;
+            _lblCurrent.Dock = DockStyle.Fill;
+            _lblCurrent.Font = UiKit.FontOf(10f, FontStyle.Regular); // 当前分辨率 / 缩放 / 通路
+            _lblCurrent.ForeColor = UiKit.TextSecondary;
+            _lblCurrent.AutoEllipsis = true;
+            _lblCurrent.UseMnemonic = false;
+            _lblCurrent.TextAlign = ContentAlignment.MiddleLeft;
+
+            hwGrid.Controls.Add(_lblEnv, 0, 0);
+            hwGrid.Controls.Add(_lblCurrent, 0, 1);
+            _hwBar.Controls.Add(hwGrid);
+
+            // ---------- 底栏：选项 + 操作按钮 ----------
             _footer = new BarPanel(true);
             _footer.Dock = DockStyle.Bottom;
             _footer.Height = UiKit.S(100);
@@ -162,12 +200,11 @@ namespace PortalJump
             footerGrid.RowCount = 1;
             footerGrid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
             footerGrid.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-            
-            footerGrid.Padding = UiKit.Pad(24, 14, 24, 14);
+
+            footerGrid.Padding = UiKit.Pad(24, 12, 24, 12);
 
             var leftBlock = new GlassPanel();
             leftBlock.Dock = DockStyle.Fill;
-            
 
             _chkAutoSwitch = UiKit.CheckBoxFlat("托盘常驻时自动跟随程序切换");
             _chkAutoSwitch.Dock = DockStyle.Top;
@@ -210,7 +247,9 @@ namespace PortalJump
             _lblStatus.ForeColor = UiKit.TextSecondary;
             _lblStatus.AutoEllipsis = true;
 
-            // Dock=Top 的堆叠顺序与添加顺序相反，所以倒着加
+            // 型号参数已移到独立的 _hwBar，这里不能再加 _lblEnv / _lblCurrent
+            // （重复添加会让 Label 被两个父容器争抢，实测渲染错位、型号挤进复选框行）。
+            // 本栏只放：状态行 + 两个复选框。Dock 顺序：Top 后加贴顶，所以倒着加。
             leftBlock.Controls.Add(_chkAutoStart);
             leftBlock.Controls.Add(_chkAutoSwitch);
             leftBlock.Controls.Add(_lblStatus);
@@ -260,8 +299,11 @@ namespace PortalJump
             _split.Panel1.Controls.Add(host1);
             _split.Panel2.Controls.Add(host2);
 
-            // Dock 顺序：后加的贴外沿，所以状态条最后加 → 在最上面
+            // Dock 顺序：后加的贴外沿。
+            // 底部两条栏中 _hwBar 要贴最底 → 它必须**先**加（先加的更贴外沿），
+            // 然后 _footer 叠在它上方。原来顺序反了，型号栏飘到了复选框行里。
             Controls.Add(_split);
+            Controls.Add(_hwBar);
             Controls.Add(_footer);
             Controls.Add(_status);
 
@@ -299,6 +341,7 @@ namespace PortalJump
                 var fresh = new System.Collections.Generic.List<Bitmap>();
                 Apply(_status, veil, fresh);
                 Apply(_footer, veil, fresh);
+                Apply(_hwBar, veil, fresh);
                 Apply(_split.Panel1, veil, fresh, _split.Left, _split.Top);
                 Apply(_split.Panel2, veil, fresh, _split.Left, _split.Top);
 
@@ -446,6 +489,7 @@ namespace PortalJump
 
             return card;
         }
+
 
         Control BuildDetailCard()
         {
@@ -598,7 +642,8 @@ namespace PortalJump
             };
             card.AddRow("关联程序", _txtProcess, 44);
 
-            card.AddWide(UiKit.HintLabel("填进程名（不含 .exe），多个用分号隔开；命中后托盘会自动切到本预设。"), 22, true);
+            // 说明文字放进"输入框那一列"，左右边缘与上方输入框严格对齐
+            card.AddInValueColumn(UiKit.HintLabel("填进程名（不含 .exe），多个用分号隔开；命中后托盘会自动切到本预设。"), 22, true);
 
             var procStrip = MakeStrip();
 
@@ -624,9 +669,12 @@ namespace PortalJump
                 }
             };
 
-            procStrip.Controls.Add(btnPick);
+            // FlowDirection=RightToLeft 时"先加的贴最右"，所以先加主操作（选择程序），
+            // 再加次操作（清空关联），视觉顺序才是「选择运行中的程序… | 清空关联」。
             procStrip.Controls.Add(btnClearProc);
-            card.AddWide(procStrip, 50, false);
+            procStrip.Controls.Add(btnPick);
+            // 按钮条同样放进值列并右对齐，右边缘与上方输入框对齐
+            card.AddInValueColumn(procStrip, 50, false);
 
             card.AddFiller();
             return card;
@@ -664,11 +712,13 @@ namespace PortalJump
         static FlowLayoutPanel MakeStrip()
         {
             var f = new FlowLayoutPanel();
-            f.FlowDirection = FlowDirection.LeftToRight;
+            // 右对齐：按钮组贴右边（用户反馈贴在左侧时位置奇怪）。
+            // FlowDirection 用 RightToLeft，让先加的控件在最右，符合"主操作在右"的直觉。
+            f.FlowDirection = FlowDirection.RightToLeft;
             f.WrapContents = false;
             f.AutoSize = true;
             f.AutoSizeMode = AutoSizeMode.GrowAndShrink;
-            f.Anchor = AnchorStyles.Left;
+            f.Anchor = AnchorStyles.Right;
             f.BackColor = UiKit.Card;
             return f;
         }

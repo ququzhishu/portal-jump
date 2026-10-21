@@ -85,8 +85,9 @@ namespace PortalJump
                 g.Clear(AppInfo.CanvasColor);
                 if (src != null)
                 {
-                    // 素材铺满右侧、不透明画上去（下面再逐像素乘回画布色）
-                    DrawCover(g, src, new Rectangle((int)(w * 0.20), 0, (int)(w * 0.80), h), 255);
+                    // 素材只铺右侧 55%（原来 80%）。左侧是文字密集区，插画铺太宽会跟
+                    // 卡片标题、字段标签抢注意力；收窄后只在窗口右缘一带露出，作为氛围而非图案。
+                    DrawCover(g, src, new Rectangle((int)(w * 0.45), 0, (int)(w * 0.55), h), 255);
                 }
             }
             if (src == null) return bmp;
@@ -96,7 +97,10 @@ namespace PortalJump
             // 半透明叠加在数学上几乎等于没变化，这就是"背景完全看不到"的原因。
             // 乘法混色下：白色处结果 = 画布色（等于看不见），有线条/颜色的地方才把画布压暗压出色彩。
             int cR = AppInfo.CanvasColor.R, cG = AppInfo.CanvasColor.G, cB = AppInfo.CanvasColor.B;
-            int fadeW = Math.Max(1, (int)(w * 0.36));      // 左侧渐隐：左边文字区保持干净
+            int fadeW = Math.Max(1, (int)(w * 0.50));      // 左侧渐隐：左边文字区保持干净
+            // 插画强度。原来 0.95 几乎把线稿原样压进底纹，高 DPI 下线条很抢眼；
+            // 降到 0.62 后只剩淡淡一层氛围，卡片与文字成为主角。
+            const double Strength = 0.62;
 
             BitmapData bd = bmp.LockBits(new Rectangle(0, 0, w, h), ImageLockMode.ReadWrite,
                 PixelFormat.Format32bppArgb);
@@ -116,7 +120,7 @@ namespace PortalJump
 
                         int mr = cR * r / 255, mg = cG * gg / 255, mb = cB * b / 255;
 
-                        double t = (x < fadeW ? (double)x / fadeW : 1.0) * 0.95;   // 越靠左越接近纯画布色
+                        double t = (x < fadeW ? (double)x / fadeW : 1.0) * Strength;   // 越靠左越接近纯画布色
 
                         buf[i] = (byte)(cB + (mb - cB) * t);
                         buf[i + 1] = (byte)(cG + (mg - cG) * t);

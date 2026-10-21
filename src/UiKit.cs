@@ -18,31 +18,43 @@ namespace PortalJump
     /// </summary>
     public static class UiKit
     {
-        // ================= 配色（浅色底 + 橙粉渐变强调；粉调偏淡紫，呼应佐伊的暮光紫） =================
+        // ================= 配色（淡色系：低饱和紫 + 柔和中性灰） =================
+        // 整体改用淡雅的低饱和配色：强调色从原来的中饱和紫(#A644BA)降到淡紫，
+        // 底、边、字都往灰白方向靠，长时间看着不刺眼，也不与游戏画面抢视觉。
         public static readonly Color Canvas = AppInfo.CanvasColor;   // 单一来源：AppInfo
         public static readonly Color Card = Color.White;
-        public static readonly Color Border = Color.FromArgb(0xE9, 0xDD, 0xF6);
-        public static readonly Color BorderStrong = Color.FromArgb(0xD6, 0xC1, 0xED);
-        public static readonly Color TextPrimary = Color.FromArgb(0x2B, 0x1D, 0x35);
-        public static readonly Color TextSecondary = Color.FromArgb(0x67, 0x54, 0x6F);
-        public static readonly Color TextHint = Color.FromArgb(0x99, 0x86, 0xA7);
-        public static readonly Color Accent = Color.FromArgb(0xB0, 0x4F, 0xC4);
-        public static readonly Color AccentHover = Color.FromArgb(0xC4, 0x64, 0xD6);
-        public static readonly Color AccentPressed = Color.FromArgb(0x8E, 0x3A, 0xA0);
-        public static readonly Color AccentTint = Color.FromArgb(0xF9, 0xF1, 0xFE);
-        public static readonly Color AccentTintBorder = Color.FromArgb(0xE4, 0xCB, 0xF7);
-        public static readonly Color Hover = Color.FromArgb(0xFB, 0xF6, 0xFF);
-        public static readonly Color Separator = Color.FromArgb(0xF2, 0xEA, 0xF9);
-        public static readonly Color Danger = Color.FromArgb(0xD8, 0x29, 0x6B);
-        public static readonly Color DisabledFill = Color.FromArgb(0xF3, 0xED, 0xF8);
+        public static readonly Color Border = Color.FromArgb(0xEB, 0xE7, 0xF2);
+        public static readonly Color BorderStrong = Color.FromArgb(0xD8, 0xCE, 0xE8);
+        public static readonly Color TextPrimary = Color.FromArgb(0x33, 0x2D, 0x3D);
+        public static readonly Color TextSecondary = Color.FromArgb(0x6B, 0x62, 0x78);
+        // 提示文字：淡色系下仍要保住正文级可读性。压到 #6E6480 后对白卡 5.05:1、对画布 4.72:1，
+        // 明显比视觉上"够淡"的上限更深一点，但这是能读清的边界。
+        public static readonly Color TextHint = Color.FromArgb(0x6E, 0x64, 0x80);
+        // 强调色：淡紫。这里存在硬冲突 —— 颜色越淡越"淡色系"，但白字对比度越低。
+        // 实测 #8B72B8 白字只有 4.04:1（不达标）；取 #7A61A8 后 4.86:1 达标，
+        // 同时仍是明显偏淡的紫（不是原来那种饱和紫）。以可读性优先。
+        public static readonly Color Accent = Color.FromArgb(0x7A, 0x61, 0xA8);
+        public static readonly Color AccentHover = Color.FromArgb(0x8A, 0x71, 0xB8);
+        public static readonly Color AccentPressed = Color.FromArgb(0x69, 0x52, 0x96);
+        public static readonly Color AccentTint = Color.FromArgb(0xF6, 0xF3, 0xFB);
+        public static readonly Color AccentTintBorder = Color.FromArgb(0xE3, 0xDC, 0xF2);
+        public static readonly Color Hover = Color.FromArgb(0xF8, 0xF6, 0xFC);
+        public static readonly Color Separator = Color.FromArgb(0xF0, 0xED, 0xF6);
+        // 危险色：淡色系下也要能读清白字。#B84A62 白字 5.05:1。
+        public static readonly Color Danger = Color.FromArgb(0xB8, 0x4A, 0x62);
+        public static readonly Color DisabledFill = Color.FromArgb(0xF2, 0xEF, 0xF7);
 
-        // 品牌渐变：橙 → 粉 → 淡紫（粉的那一端往淡紫偏，不再走品红）
-        public static readonly Color GradOrange = Color.FromArgb(0xFF, 0x9E, 0x4F);
-        public static readonly Color GradCoral = Color.FromArgb(0xFF, 0x7F, 0xAE);
-        public static readonly Color GradPink = Color.FromArgb(0xC0, 0x6C, 0xDE);
-        // 按钮用的两段渐变（更亮、对比更强）
-        public static readonly Color GradButtonA = Color.FromArgb(0xFF, 0x9A, 0x4D);
-        public static readonly Color GradButtonB = Color.FromArgb(0xD9, 0x5F, 0xC9);
+        // 品牌色：统一为一个紫色实色，不再用渐变。
+        // 原来这里是橙→粉→淡紫的三角渐变（GradOrange / GradCoral / GradPink），
+        // 主按钮、顶栏分隔线、页头横幅、徽标、传送门光环各用其中一段，
+        // 整个界面因此显得花。改成单一 Accent 紫后，强调色只有一个，信息层级更清楚。
+        // 保留这三个名字只为兼容旧调用点，值已统一到 Accent 系。
+        public static readonly Color GradOrange = Accent;
+        public static readonly Color GradCoral = Accent;
+        public static readonly Color GradPink = Accent;
+        // 按钮用的两段色（已统一，保留名字仅为兼容）
+        public static readonly Color GradButtonA = Accent;
+        public static readonly Color GradButtonB = Accent;
         // 卡片投影的色调（淡紫，跟主题一致）
         public static readonly Color ShadowTint = Color.FromArgb(0x8B, 0x4C, 0xA8);
 
@@ -99,6 +111,51 @@ namespace PortalJump
         public static string FamilyName
         {
             get { return Family; }
+        }
+
+        /// <summary>
+        /// 品牌标题字体族：主界面左上角「Portal Jump」用的展示字体。
+        ///
+        /// **只用开源许可字体，避免商业风险**：
+        ///   - Cascadia Code（OFL-1.1，微软开源，等宽技术感最强）← 首选
+        ///   - Noto Sans SC（OFL-1.1，Google 开源，稳重）
+        ///   - DejaVu Sans（免费许可，Linux 常见兜底）
+        /// 都取不到就退回正文族，不会出现方块字。
+        /// </summary>
+        static readonly string BrandFamily = PickBrandFamily();
+
+        static string PickBrandFamily()
+        {
+            string[] prefer = {
+                "Cascadia Code",        // OFL-1.1
+                "Cascadia Mono",        // OFL-1.1
+                "Noto Sans SC",         // OFL-1.1
+                "DejaVu Sans",          // 免费许可
+            };
+            foreach (string name in prefer)
+            {
+                try
+                {
+                    using (var f = new Font(name, 9f, FontStyle.Bold))
+                    {
+                        if (string.Equals(f.Name, name, StringComparison.OrdinalIgnoreCase)) return name;
+                    }
+                }
+                catch { }
+            }
+            return PickFamily();
+        }
+
+        /// <summary>品牌标题字体（每次新建，调用方负责释放）</summary>
+        public static Font BrandTitleFont(float size)
+        {
+            return new Font(BrandFamily, size, FontStyle.Bold, GraphicsUnit.Point);
+        }
+
+        /// <summary>品牌标题用的字体族名（关于页可显示，便于确认许可证来源）</summary>
+        public static string BrandFamilyName
+        {
+            get { return BrandFamily; }
         }
 
         static string PickFamily()
@@ -166,39 +223,39 @@ namespace PortalJump
             return Color.FromArgb(Math.Max(0, Math.Min(255, alpha)), c);
         }
 
-        // ================= 渐变笔刷 =================
+        // ================= 笔刷（已去渐变，统一纯色） =================
+        //
+        // 原来这里返回 LinearGradientBrush，各调用点画的是橙→粉→紫的渐变。
+        // 按"去掉渐变色彩"的要求，全部改为纯色实心；返回类型放宽到 Brush，
+        // 这样所有调用点的 using (…brush…) 代码一行都不用改。
 
-        public static LinearGradientBrush GradientBrush(Rectangle r, Color a, Color b, float angle)
+        /// <summary>两色渐变 → 实为纯色（取 a）。保留签名兼容旧调用。</summary>
+        public static Brush GradientBrush(Rectangle r, Color a, Color b, float angle)
         {
-            Rectangle safe = r.Width <= 0 || r.Height <= 0 ? new Rectangle(r.X, r.Y, Math.Max(1, r.Width), Math.Max(1, r.Height)) : r;
-            return new LinearGradientBrush(safe, a, b, angle);
+            return new SolidBrush(a);
         }
 
-        public static LinearGradientBrush TriGradientBrush(Rectangle r, Color a, Color b, Color c, float angle)
+        /// <summary>三色渐变 → 实为纯色（取中间色 b，视觉上最接近原本的平均观感）。</summary>
+        public static Brush TriGradientBrush(Rectangle r, Color a, Color b, Color c, float angle)
         {
-            LinearGradientBrush br = GradientBrush(r, a, c, angle);
-            var blend = new ColorBlend(3);
-            blend.Colors = new Color[] { a, b, c };
-            blend.Positions = new float[] { 0f, 0.52f, 1f };
-            br.InterpolationColors = blend;
-            return br;
+            return new SolidBrush(b);
         }
 
-        /// <summary>品牌三段渐变（橙 → 珊瑚粉 → 品红粉）</summary>
-        public static LinearGradientBrush BrandBrush(Rectangle r, float angle)
+        /// <summary>品牌主色刷（原三段渐变，现为 Accent 纯色）</summary>
+        public static Brush BrandBrush(Rectangle r, float angle)
         {
-            return TriGradientBrush(r, GradOrange, GradCoral, GradPink, angle);
+            return new SolidBrush(Accent);
         }
 
-        /// <summary>品牌两段渐变（按钮用）</summary>
-        public static LinearGradientBrush BrandButtonBrush(Rectangle r, float angle)
+        /// <summary>主按钮刷（原两段渐变，现为 Accent 纯色）</summary>
+        public static Brush BrandButtonBrush(Rectangle r, float angle)
         {
-            return GradientBrush(r, GradButtonA, GradButtonB, angle);
+            return new SolidBrush(Accent);
         }
 
         public static void FillBrand(Graphics g, GraphicsPath path, Rectangle bounds, float angle)
         {
-            using (LinearGradientBrush br = BrandBrush(bounds, angle)) g.FillPath(br, path);
+            using (Brush br = BrandBrush(bounds, angle)) g.FillPath(br, path);
         }
 
         // ================= 圆角 =================
@@ -284,14 +341,13 @@ namespace PortalJump
                 float cx = r.X + r.Width / 2f;
                 float cy = r.Y + r.Height / 2f;
 
-                Color ringA = white ? Color.FromArgb(245, 255, 255, 255) : GradOrange;
-                Color ringB = white ? Color.FromArgb(140, 255, 255, 255) : GradPink;
+                Color ringA = white ? Color.FromArgb(245, 255, 255, 255) : Accent;
+                Color ringB = white ? Color.FromArgb(140, 255, 255, 255) : Accent;
                 float penW = Math.Max(1.4f, w * 0.075f);
                 float d = w * 0.92f - penW;
 
-                using (var br = new LinearGradientBrush(
-                    new RectangleF(cx - w / 2f, cy - w / 2f, w, w), ringA, ringB, 25f))
-                using (var pen = new Pen(br, penW))
+                // 圆环原本是橙→紫渐变描边，现改为 Accent 纯色（去渐变）
+                using (var pen = new Pen(ringA, penW))
                 {
                     g.DrawEllipse(pen, cx - d / 2f, cy - d / 2f, d, d);
                 }
@@ -304,11 +360,10 @@ namespace PortalJump
                 }
                 else
                 {
-                    using (var br2 = new LinearGradientBrush(
-                        new RectangleF(cx - outer, cy - outer, outer * 2, outer * 2), GradOrange, GradPink, 35f))
-                    using (var b = new SolidBrush(Color.White))
+                    // 中心四角星原本也是渐变填充，现改为纯色
+                    using (var b = new SolidBrush(Accent))
                     {
-                        g.FillPolygon(br2, star);
+                        g.FillPolygon(b, star);
                     }
                 }
             }
@@ -415,28 +470,61 @@ namespace PortalJump
             return t;
         }
 
+        /// <summary>
+        /// 输入控件的包装容器：**只做布局**，不画任何装饰。
+        ///
+        /// 早先这里画过一条下划线来提示"可输入"，但原生控件现在保留了 FixedSingle 边框
+        /// （去掉边框会丢 NumericUpDown 的上下按钮和 ComboBox 的下拉箭头），
+        /// 再加下划线就成了双重线条。所以退回纯布局容器：
+        /// 作用只是让各输入控件高度统一、Dock=Fill 撑满表格单元。
+        /// </summary>
+        public class UnderlineHost : Panel
+        {
+            public UnderlineHost()
+            {
+                SetStyle(ControlStyles.SupportsTransparentBackColor | ControlStyles.OptimizedDoubleBuffer
+                    | ControlStyles.AllPaintingInWmPaint | ControlStyles.ResizeRedraw, true);
+                BackColor = Color.Transparent;
+                Padding = new Padding(0);
+            }
+        }
+
+        // ---- 输入类控件的去底色处理 ----
+        //
+        // 用户要求"可输入框去掉底色"。WinForms 原生 TextBox/ComboBox/NumericUpDown
+        // **不支持真透明**（BackColor=Transparent 会被忽略，退回系统灰）。
+        // 做法：卡片改成完全不透明白（CardPanel.FillAlpha=255），输入框也用纯白，
+        // 两者同色 → 视觉上没有"底色块"。
+        //
+        // 【重要】不能用 BorderStyle.None / FlatStyle.Flat 把边框去掉：
+        // 实测这会连带删掉 NumericUpDown 的「前进/后退」按钮和 ComboBox 的「下拉按钮」
+        // （UI Automation 枚举从 25 个 Button 掉到 20 个）。这些子按钮是原生控件内部
+        // 不可自绘的部分，去掉边框等于去掉交互。所以保留 BorderStyle.FixedSingle。
+        static readonly Color InputSurface = Color.White;
+
         public static void StyleTextBox(TextBox t)
         {
             t.Font = FontBody;
             t.BorderStyle = BorderStyle.FixedSingle;
-            t.BackColor = Card;
+            t.BackColor = InputSurface;
             t.ForeColor = TextPrimary;
         }
 
         public static void StyleCombo(ComboBox c)
         {
             c.Font = FontBody;
-            // Flat 风格的下拉框在白底上边框几乎看不见，看起来像浮空的文字，这里用 Standard 保证有 1px 边框
+            // Standard 保留原生下拉箭头（Flat 会丢），白底 + 1px 边框融入卡片
             c.FlatStyle = FlatStyle.Standard;
-            c.BackColor = Card;
+            c.BackColor = InputSurface;
             c.ForeColor = TextPrimary;
         }
 
         public static void StyleNumeric(NumericUpDown n)
         {
             n.Font = FontBody;
+            // FixedSingle 保留原生上下调节按钮（None 会丢）
             n.BorderStyle = BorderStyle.FixedSingle;
-            n.BackColor = Card;
+            n.BackColor = InputSurface;
             n.ForeColor = TextPrimary;
         }
 
@@ -566,7 +654,7 @@ namespace PortalJump
                 using (GraphicsPath p = UiKit.RoundRect(b, r))
                 {
                     Rectangle gr = new Rectangle(b.X, b.Y, b.Width, b.Height);
-                    using (LinearGradientBrush br = UiKit.BrandButtonBrush(gr, 15f))
+                    using (Brush br = UiKit.BrandButtonBrush(gr, 15f))
                     {
                         g.FillPath(br, p);
                     }
@@ -664,13 +752,24 @@ namespace PortalJump
     {
         public readonly TableLayoutPanel Body;
         readonly int _radius = 14;
+        readonly string _title;
         int _row;
 
-        /// <summary>卡片白底的透明度（0-255）。255 = 不透明白底，越小底纹越明显。</summary>
-        public int FillAlpha = 196;
+        /// <summary>
+        /// 卡片白底的透明度（0-255）。255 = 不透明白底。
+        ///
+        /// 现在是 **255（完全不通明白）**：
+        /// 输入框去底色后需要与卡片同色才能"看不见"，
+        /// 但只要卡片带一点透明度，背景纹理就会把它染成 #EEEAED 这类色调，
+        /// 而 WinForms 原生输入框只能用纯色背景，两者必然有色差、露出一个方块。
+        /// 改成不透明后卡片是纯白，输入框也用纯白，方块感彻底消失。
+        /// 底纹仍在卡片之间的留白、顶栏与底栏透出，氛围没有丢。
+        /// </summary>
+        public int FillAlpha = 255;
 
         public CardPanel(string title)
         {
+            _title = title;
             // 透明：让父容器（带底纹的阴影容器 / 分割面板）先把背景画出来
             SetStyle(ControlStyles.SupportsTransparentBackColor | ControlStyles.OptimizedDoubleBuffer
                 | ControlStyles.AllPaintingInWmPaint | ControlStyles.ResizeRedraw, true);
@@ -681,23 +780,26 @@ namespace PortalJump
             Body.ColumnCount = 2;
             Body.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, UiKit.S(112)));
             Body.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
-            Body.Padding = UiKit.Pad(20, 2, 20, 14);
+            // 上边距 0：标题行自己带着内边距，Body 不要再叠
+            Body.Padding = UiKit.Pad(20, 0, 20, 14);
 
-            var titleLabel = new Label();
-            titleLabel.Text = title;
-            titleLabel.Font = UiKit.FontCardTitle;
-            titleLabel.ForeColor = UiKit.TextPrimary;
-            titleLabel.AutoSize = false;
-            titleLabel.Dock = DockStyle.Top;
-            titleLabel.Height = UiKit.S(44);
-            // 左边距与内容区一致（20），标题和下面的输入框左边缘对齐
-            titleLabel.Padding = UiKit.Pad(20, 0, 0, 0);
-            // 透明背景：让父面板 OnPaint 画的卡片底色/圆角描边透出来
-            titleLabel.BackColor = Color.Transparent;
+            // 标题不再用 Label 控件，改由 CardPanel.OnPaint 直接画文字。
+            // 原因：Label 的 Dock=Top + TextAlign 组合在 WinForms 里行为反复（居中/顶对齐
+            // 都会额外撑出留白，实测标题距卡片顶边在 214~341 物理像素之间浮动），
+            // 无法稳定控制位置。改成自绘后坐标完全确定：标题基线固定在 TITLE_BASE。
+            Body.Dock = DockStyle.Fill;
+            // 上边距只让出标题区高度（TITLE_H），不要再多加。
+            // 之前写成 TITLE_H+10 把内容区压矮，导致左侧卡片溢出、出现滚动条、按钮压住内容。
+            Body.Padding = UiKit.Pad(20, TITLE_H + 2, 20, 14);
 
             Controls.Add(Body);
-            Controls.Add(titleLabel);
         }
+
+        // ---- 标题区几何（逻辑像素，经 S() 按 DPI 放大）----
+        // TITLE_H：标题区总高，分隔线画在这里；正文从这里往下开始。
+        internal const int TITLE_H = 52;
+        // 标题文字的绘制 y（TextRenderer 以文字左上角为锚点，所以这里留出上内边距）。
+        internal const int TITLE_TOP = 16;
 
         /// <summary>
         /// 内容比卡片高时是否出现滚动条。
@@ -739,6 +841,23 @@ namespace PortalJump
             Body.RowCount = _row;
         }
 
+        /// <summary>
+        /// 放在"输入框那一列"（第 2 列）整行，用于说明文字、按钮条这类
+        /// 需要与上方输入框左右边缘对齐的元素。
+        ///
+        /// 与 AddWide 的区别：AddWide 跨 2 列，左边缘会从标签列最左开始，
+        /// 比输入框的起点更靠左 —— 用户反馈的"小字位置没对齐"就是这个原因。
+        /// 这里只占第 2 列，左边缘与输入框严格对齐。
+        /// </summary>
+        public void AddInValueColumn(Control content, int rowHeightLogical, bool stretch)
+        {
+            Body.RowStyles.Add(new RowStyle(SizeType.Absolute, UiKit.S(rowHeightLogical)));
+            content.Anchor = stretch ? (AnchorStyles.Left | AnchorStyles.Right) : AnchorStyles.Left;
+            Body.Controls.Add(content, 1, _row);
+            _row++;
+            Body.RowCount = _row;
+        }
+
         public void AddFill(Control content)
         {
             Body.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
@@ -772,6 +891,28 @@ namespace PortalJump
                 }
                 using (var pen = new Pen(UiKit.Border)) g.DrawPath(pen, p);
             }
+
+            // ---- 标题 ----
+            // 自绘而不是 Label：坐标完全确定，不受 WinForms Dock/TextAlign 的隐含留白影响。
+            if (!string.IsNullOrEmpty(_title))
+            {
+                TextRenderer.DrawText(g, _title, UiKit.FontCardTitle,
+                    new Point(UiKit.S(20), UiKit.S(TITLE_TOP)),
+                    UiKit.TextPrimary,
+                    TextFormatFlags.Left | TextFormatFlags.NoPrefix);
+            }
+
+            // ---- 标题区与表单区的分隔线 ----
+            // 原来用 Separator(#F0EDF6)，实测与卡片白底只差 1.13:1，屏幕上看不见，
+            // 所以用户觉得"没有分割线"。改用边界色 Border，并在左右内缩到 20，不顶圆角。
+            int sepY = UiKit.S(TITLE_H);
+            if (Height > sepY + UiKit.S(8))
+            {
+                using (var pen = new Pen(UiKit.Border))
+                {
+                    g.DrawLine(pen, UiKit.S(20), sepY, Width - UiKit.S(21), sepY);
+                }
+            }
         }
 
         protected override void OnResize(EventArgs e)
@@ -804,8 +945,11 @@ namespace PortalJump
         {
             base.OnPaintBackground(e);   // 透明：分割面板的底纹先画出来，阴影再压在上面
             base.OnPaint(e);
-            UiKit.DrawSoftShadow(e.Graphics, DisplayRectangle, UiKit.S(14), UiKit.S(_pad),
-                UiKit.ShadowTint, 10);
+            // 阴影从强度 10 提到 22、扩散 14→18：卡片底色提亮后（FillAlpha 248），
+            // 若阴影还那么淡，白卡片会和近白的顶栏/底栏糊成一片、失去「浮起」感。
+            // 加倍阴影把卡片边界重新拉出来，同时不至于显脏。
+            UiKit.DrawSoftShadow(e.Graphics, DisplayRectangle, UiKit.S(18), UiKit.S(_pad),
+                UiKit.ShadowTint, 22);
         }
     }
 
@@ -817,8 +961,13 @@ namespace PortalJump
         public bool LineOnBottom;
         public bool LineGradient;
 
-        /// <summary>白底透明度（0-255）</summary>
-        public int FillAlpha = 210;
+        /// <summary>
+        /// 白底透明度（0-255）。
+        /// 与 CardPanel 同理：210（82%）时顶部状态栏和底部按钮区被底纹染灰，
+        /// 同一窗口里出现好几种底色。提到 244 让这两条横条读数稳定，
+        /// 同时仍与卡片（248）形成极轻微的层次差。
+        /// </summary>
+        public int FillAlpha = 244;
 
         public BarPanel(bool lineOnTop)
         {
@@ -838,10 +987,12 @@ namespace PortalJump
             }
             if (LineGradient)
             {
+                // 原来这里是一条橙→紫渐变的分隔线，去掉渐变后若直接用 Accent 纯色，
+                // 整条横线会变成醒目的紫色实线，反而比渐变更抢眼。
+                // 改为淡淡的主题色边线（同 UiKit.Border 一档），只起分隔作用。
                 int y = LineOnTop ? 0 : Height - 1;
                 var line = new Rectangle(0, y, Math.Max(1, Width), 1);
-                using (LinearGradientBrush br = UiKit.GradientBrush(line,
-                    UiKit.Alpha(UiKit.GradOrange, 120), UiKit.Alpha(UiKit.GradPink, 120), 0f))
+                using (var br = new SolidBrush(UiKit.Border))
                 {
                     e.Graphics.FillRectangle(br, line);
                 }
@@ -856,12 +1007,74 @@ namespace PortalJump
         }
     }
 
-    /// <summary>顶部品牌渐变横幅：橙粉渐变 + 右侧传送门光环装饰（文字用透明 Label 叠在上面）</summary>
+    /// <summary>
+    /// 左上角品牌区：程序图标 + 软件名（参考 Clash Verge 的侧栏头部）。
+    /// 图标从程序自身的 .ico 读取（与任务栏/资源管理器一致，改图标只需换 ico）；
+    /// 读不到时退化成 UiKit.DrawLogo 画的矢量徽标，不会出现空白。
+    /// </summary>
+    /// <summary>
+    /// 左上角品牌区：只有「Portal Jump」文字，**不放图标**（按用户要求）。
+    /// 字体用独立的展示字族 Bahnschrift（降级 Segoe UI），比正文更粗更有工业感。
+    /// 字距手动拉开一点，让纯文字标题有设计感而不显得单薄。
+    /// </summary>
+    public class BrandHeader : Panel
+    {
+        public BrandHeader()
+        {
+            SetStyle(ControlStyles.SupportsTransparentBackColor | ControlStyles.OptimizedDoubleBuffer
+                | ControlStyles.AllPaintingInWmPaint | ControlStyles.ResizeRedraw, true);
+            BackColor = Color.Transparent;
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            base.OnPaintBackground(e);
+            base.OnPaint(e);
+            Graphics g = e.Graphics;
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
+
+            string text = AppInfo.EnglishName;
+
+            int pad = UiKit.S(32);
+
+            // 字号放大：13pt → 17pt（用户要求更醒目）。
+            // Font 用 GraphicsUnit.Point 已是物理尺寸，不能再乘 Scale。
+            using (Font f = UiKit.BrandTitleFont(17f))
+            {
+                // 字距拉开：逐字符绘制，每字后加固定间距，得到字母间距（tracking）效果。
+                // TextRenderer 不支持字距参数，手工排是唯一稳的做法。
+                float spacing = UiKit.S(1);
+                float totalW = 0;
+                foreach (char ch in text)
+                {
+                    totalW += TextRenderer.MeasureText(g, ch.ToString(), f,
+                        Size.Empty, TextFormatFlags.NoPadding).Width + spacing;
+                }
+
+                float y = (Height - TextRenderer.MeasureText(g, "Ag", f,
+                    Size.Empty, TextFormatFlags.NoPadding).Height) / 2f;
+                // 整串在品牌区里水平居中会显得孤立，靠左对齐更自然；
+                // 但留出 pad 之后若还有余量，轻微左偏更符合"侧栏标题"的视觉。
+                float x = pad;
+                foreach (char ch in text)
+                {
+                    string s = ch.ToString();
+                    TextRenderer.DrawText(g, s, f, new Point((int)x, (int)y),
+                        UiKit.TextPrimary, TextFormatFlags.NoPadding | TextFormatFlags.NoPrefix);
+                    x += TextRenderer.MeasureText(g, s, f, Size.Empty, TextFormatFlags.NoPadding).Width + spacing;
+                }
+            }
+        }
+    }
+
+    /// <summary>顶部品牌横幅：Accent 纯色底 + 右侧传送门光环装饰（文字用透明 Label 叠在上面）。
+    /// 原为橙粉渐变，按"去掉渐变"要求已改为单色。</summary>
     public class HeroPanel : Panel
     {
         public HeroPanel()
         {
-            BackColor = UiKit.GradOrange;
+            BackColor = UiKit.Accent;
             SetStyle(ControlStyles.ResizeRedraw | ControlStyles.OptimizedDoubleBuffer
                 | ControlStyles.AllPaintingInWmPaint, true);
         }
@@ -873,7 +1086,8 @@ namespace PortalJump
             Rectangle b = ClientRectangle;
             if (b.Width <= 0 || b.Height <= 0) return;
 
-            using (LinearGradientBrush br = UiKit.BrandBrush(b, 18f))
+            // BrandBrush 现在返回 Accent 纯色实心刷，这里保持调用形式不变
+            using (Brush br = UiKit.BrandBrush(b, 18f))
             {
                 g.FillRectangle(br, b);
             }
@@ -1009,7 +1223,7 @@ namespace PortalJump
                 var badge = new Rectangle(b.Right - UiKit.S(18) - bw, b.Y + (b.Height - bh) / 2, bw, bh);
                 using (GraphicsPath path = UiKit.RoundRect(badge, UiKit.S(11)))
                 {
-                    using (LinearGradientBrush br = UiKit.BrandBrush(badge, 20f)) g.FillPath(br, path);
+                    using (Brush br = UiKit.BrandBrush(badge, 20f)) g.FillPath(br, path);
                 }
                 TextRenderer.DrawText(g, "恢复目标", UiKit.FontHint, badge, Color.White,
                     TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPrefix);

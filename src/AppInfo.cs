@@ -12,19 +12,23 @@ namespace PortalJump
     public static class AppInfo
     {
         /// <summary>
-        /// 界面画布底色（浅紫白）。WinForms 的 UiKit 与 WPF 的 Backdrop 都用它，
+        /// 界面画布底色（淡中性灰白）。WinForms 的 UiKit 与 WPF 的 Backdrop 都用它，
         /// 放在这里是为了让底纹生成逻辑不依赖任何一个 UI 框架（WPF 进程里不再链接 UiKit）。
+        /// 原值 #FBF8FE 带明显紫调；改淡色系后取中性灰白，与淡紫强调色搭配更清爽。
         /// </summary>
         public static readonly System.Drawing.Color CanvasColor =
-            System.Drawing.Color.FromArgb(0xFB, 0xF8, 0xFE);
+            System.Drawing.Color.FromArgb(0xF7, 0xF6, 0xF9);
 
         /// <summary>版本号（build.ps1 用正则从这里提取，用来命名分发包）</summary>
-        public const string Version = "0.11";
+        public const string Version = "0.21";
 
-        /// <summary>中文名</summary>
+        /// <summary>
+        /// 中文名。**不再出现在任何界面/标题里**（用户要求只保留英文名），
+        /// 仅保留常量给日志与旧配置兼容使用。
+        /// </summary>
         public const string Name = "折返跃迁";
 
-        /// <summary>英文名</summary>
+        /// <summary>英文名（现在是对外的唯一名称，界面标题、托盘、窗口标题都用它）</summary>
         public const string EnglishName = "Portal Jump";
 
         /// <summary>程序说明（关于页 / 帮助）—— 只讲功能，不讲使用场景</summary>
@@ -76,16 +80,20 @@ namespace PortalJump
         /// <summary>旧版本的名字，用于迁移自启项与配置文件</summary>
         public const string LegacyInternalId = "ResSwitch";
 
-        /// <summary>「折返跃迁 Portal Jump」</summary>
+        /// <summary>
+        /// 对外标题：**只有英文名 Portal Jump**，不含中文。
+        /// 窗口标题、托盘提示、对话框标题、关于页全部走这里，
+        /// 所以改这一处就能统一去掉中文名。
+        /// </summary>
         public static string Title
         {
-            get { return Name + " " + EnglishName; }
+            get { return EnglishName; }
         }
 
-        /// <summary>「折返跃迁 Portal Jump v0.10」</summary>
+        /// <summary>「Portal Jump  v0.11」</summary>
         public static string TitleWithVersion
         {
-            get { return Name + " " + EnglishName + "  v" + Version; }
+            get { return EnglishName + "  v" + Version; }
         }
     }
 }

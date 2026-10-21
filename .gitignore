@@ -76,6 +76,9 @@ assets/gen/
 tools/Shot.cs
 tools/MenuShot.cs
 tools/IconTool.cs
+# UI 控件枚举工具：用于验证界面改版后按钮不丢失，属开发调试用
+tools/UiInventory.cs
+tools/UiInventoryClick.cs
 # ---- AMD 平台调研（开发中，未验证，暂不公开）----
 AMD平台ADLX调研报告.md
 tools/adlx-probe.cs

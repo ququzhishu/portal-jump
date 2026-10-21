@@ -320,9 +320,10 @@ namespace PortalJump
 
             _icon = new NotifyIcon();
             _icon.Icon = AppIcon.Get(32);
-            _icon.Text = AppInfo.Title + " — " + AppInfo.Tagline;
+            // 托盘提示只留程序名（WinForms 限制 63 字符，原名+标语会超）
+            _icon.Text = AppInfo.Title;
             _icon.Visible = true;
-            _icon.BalloonTipTitle = AppInfo.Name;
+            _icon.BalloonTipTitle = AppInfo.Title;
             _icon.DoubleClick += delegate { OpenSettings(); };
             RebuildMenu();
 
