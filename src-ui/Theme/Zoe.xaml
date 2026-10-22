@@ -79,7 +79,12 @@
     <Setter Property="FontSize" Value="15" />
     <Setter Property="FontWeight" Value="Bold" />
     <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
-    <Setter Property="Margin" Value="0,0,0,14" />
+    <!-- 内边距：左右 20 与卡片内其他字段（Margin 20,0,20,16）对齐，
+         让标题不再贴住卡片的圆角边框。
+         原来是 "0,0,0,14"（左右上全是 0），标题紧贴左上角，
+         被 CornerRadius=14 的圆角切掉边，看起来"往左上角挤出去"。 -->
+    <Setter Property="Margin" Value="20,0,20,0" />
+    <Setter Property="VerticalAlignment" Value="Center" />
   </Style>
 
   <!-- 字段名（右对齐）+ 字段值 -->

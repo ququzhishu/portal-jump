@@ -172,7 +172,7 @@
                        AutomationProperties.Name="预设" />
 
             <!-- 注意：这里故意不给 AutomationProperties.Name —— 探针靠"没有名字的 List"来识别预设列表 -->
-            <ListBox x:Name="PresetList" Grid.Row="1" Margin="12,0,12,0"
+            <ListBox x:Name="PresetList" Grid.Row="1" Margin="20,0,20,0"
                      Background="Transparent" BorderThickness="0"
                      ItemContainerStyle="{StaticResource PresetItem}"
                      ScrollViewer.HorizontalScrollBarVisibility="Disabled"
@@ -201,7 +201,7 @@
               </ListBox.ItemTemplate>
             </ListBox>
 
-            <Grid Grid.Row="2" Margin="12,0,12,0" VerticalAlignment="Center">
+            <Grid Grid.Row="2" Margin="20,0,20,0" VerticalAlignment="Center">
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="*" />
@@ -221,7 +221,7 @@
                       Height="36" Margin="5,0,0,0" AutomationProperties.Name="下移" Click="OnMoveDown" />
             </Grid>
 
-            <CheckBox x:Name="ChkRestore" Grid.Row="3" Margin="16,0,12,0" VerticalAlignment="Center"
+            <CheckBox x:Name="ChkRestore" Grid.Row="3" Margin="20,0,20,0" VerticalAlignment="Center"
                       Content="所有关联程序退出后，自动恢复到本预设"
                       AutomationProperties.Name="所有关联程序退出后，自动恢复到本预设"
                       Checked="OnRestoreToggled" Unchecked="OnRestoreToggled" />
