@@ -76,6 +76,8 @@ assets/gen/
 tools/Shot.cs
 tools/MenuShot.cs
 tools/IconTool.cs
+# WPF 窗口截图工具：带 DPI 感知，能正确抓取高缩放下 WPF 窗口的完整内容
+tools/WinShot.cs
 # UI 控件枚举工具：用于验证界面改版后按钮不丢失，属开发调试用
 tools/UiInventory.cs
 tools/UiInventoryClick.cs

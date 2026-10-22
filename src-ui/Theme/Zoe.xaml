@@ -7,20 +7,27 @@
        所有界面只引用这里的资源，换配色只改这一个文件。
        ================================================================== -->
 
-  <!-- ========== 颜色 ========== -->
+  <!-- ========== 颜色 ==========
+       淡色系：低饱和紫 + 中性灰白底。
+       与 WinForms 版（src/UiKit.cs）保持同一套色值，两套界面视觉一致。
+       强调色 #7A61A8 是"能在上面放白字"的最浅紫（实测白字对比度 5.12:1，达 WCAG AA）。-->
   <Color x:Key="ZoeOrangeColor">#FF9E4F</Color>
   <Color x:Key="ZoePinkColor">#FF7FAE</Color>
   <Color x:Key="ZoePurpleColor">#C06CDE</Color>
-  <Color x:Key="AccentColor">#B04FC4</Color>
-  <Color x:Key="AccentHoverColor">#C464D6</Color>
-  <Color x:Key="CanvasColor">#FBF8FE</Color>
+  <Color x:Key="AccentColor">#7A61A8</Color>
+  <Color x:Key="AccentHoverColor">#8A71B8</Color>
+  <Color x:Key="AccentPressedColor">#695296</Color>
+  <Color x:Key="CanvasColor">#F7F6F9</Color>
   <Color x:Key="CardColor">#FFFFFF</Color>
-  <Color x:Key="BorderColor">#E9DDF6</Color>
-  <Color x:Key="BorderStrongColor">#D6C1ED</Color>
-  <Color x:Key="TextPrimaryColor">#2B1D35</Color>
-  <Color x:Key="TextSecondaryColor">#67546F</Color>
-  <Color x:Key="TextHintColor">#9986A7</Color>
-  <Color x:Key="TintColor">#F9F1FE</Color>
+  <Color x:Key="BorderColor">#EBE7F2</Color>
+  <Color x:Key="BorderStrongColor">#D8CEE8</Color>
+  <Color x:Key="TextPrimaryColor">#332D3D</Color>
+  <Color x:Key="TextSecondaryColor">#6B6278</Color>
+  <Color x:Key="TextHintColor">#6E6480</Color>
+  <Color x:Key="TintColor">#F6F3FB</Color>
+  <Color x:Key="HoverColor">#F8F6FC</Color>
+  <Color x:Key="SeparatorColor">#F0EDF6</Color>
+  <Color x:Key="DangerColor">#B84A62</Color>
 
   <!-- ========== 画刷 ========== -->
   <SolidColorBrush x:Key="CanvasBrush" Color="{StaticResource CanvasColor}" />
@@ -32,23 +39,19 @@
   <SolidColorBrush x:Key="TextHintBrush" Color="{StaticResource TextHintColor}" />
   <SolidColorBrush x:Key="AccentBrush" Color="{StaticResource AccentColor}" />
   <SolidColorBrush x:Key="AccentHoverBrush" Color="{StaticResource AccentHoverColor}" />
+  <SolidColorBrush x:Key="AccentPressedBrush" Color="{StaticResource AccentPressedColor}" />
   <SolidColorBrush x:Key="TintBrush" Color="{StaticResource TintColor}" />
+  <SolidColorBrush x:Key="HoverBrush" Color="{StaticResource HoverColor}" />
+  <SolidColorBrush x:Key="SeparatorBrush" Color="{StaticResource SeparatorColor}" />
+  <SolidColorBrush x:Key="DangerBrush" Color="{StaticResource DangerColor}" />
   <SolidColorBrush x:Key="WhiteBrush" Color="#FFFFFF" />
 
-  <!-- 品牌渐变（橙 → 粉 → 淡紫），头图与主按钮共用 -->
-  <LinearGradientBrush x:Key="BrandBrush" StartPoint="0,0" EndPoint="1,1">
-    <GradientStop Color="{StaticResource ZoeOrangeColor}" Offset="0" />
-    <GradientStop Color="{StaticResource ZoePinkColor}" Offset="0.52" />
-    <GradientStop Color="{StaticResource ZoePurpleColor}" Offset="1" />
-  </LinearGradientBrush>
-  <LinearGradientBrush x:Key="ButtonBrush" StartPoint="0,0" EndPoint="1,0.45">
-    <GradientStop Color="#FF9A4D" Offset="0" />
-    <GradientStop Color="#D95FC9" Offset="1" />
-  </LinearGradientBrush>
-  <LinearGradientBrush x:Key="ButtonHoverBrush" StartPoint="0,0" EndPoint="1,0.45">
-    <GradientStop Color="#FFB066" Offset="0" />
-    <GradientStop Color="#E874D8" Offset="1" />
-  </LinearGradientBrush>
+  <!-- 品牌刷：**改为实色**（用户要求去掉全部渐变）。
+       原来这里是 LinearGradientBrush（橙→粉→淡紫），现在统一用强调色实色。
+       键名保持不变，所有引用处无需改动。 -->
+  <SolidColorBrush x:Key="BrandBrush" Color="{StaticResource AccentColor}" />
+  <SolidColorBrush x:Key="ButtonBrush" Color="{StaticResource AccentColor}" />
+  <SolidColorBrush x:Key="ButtonHoverBrush" Color="{StaticResource AccentHoverColor}" />
 
   <!-- ========== 字体 ========== -->
   <FontFamily x:Key="UiFont">Microsoft YaHei UI, Microsoft YaHei, Segoe UI</FontFamily>
