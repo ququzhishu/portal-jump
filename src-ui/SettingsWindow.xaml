@@ -150,9 +150,12 @@
       <!-- ========== 两张卡片 ========== -->
       <Grid Grid.Row="1" Margin="16,10,16,0">
         <Grid.ColumnDefinitions>
+          <!-- 两列等宽（原来是 * 和 0.95*，右卡比左卡窄 5%，
+               两张卡片右边缘不对齐，看起来是"错位"）。
+               左右都用 * 让两卡严格等宽；中间 14 是卡片间距。 -->
           <ColumnDefinition Width="*" MinWidth="400" />
           <ColumnDefinition Width="14" />
-          <ColumnDefinition Width="0.95*" MinWidth="520" />
+          <ColumnDefinition Width="*" MinWidth="520" />
         </Grid.ColumnDefinitions>
 
         <!-- 预设列表卡 -->
