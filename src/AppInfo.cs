@@ -20,7 +20,7 @@ namespace PortalJump
             System.Drawing.Color.FromArgb(0xF7, 0xF6, 0xF9);
 
         /// <summary>版本号（build.ps1 用正则从这里提取，用来命名分发包）</summary>
-        public const string Version = "0.21";
+        public const string Version = "0.22";
 
         /// <summary>
         /// 中文名。**不再出现在任何界面/标题里**（用户要求只保留英文名），
