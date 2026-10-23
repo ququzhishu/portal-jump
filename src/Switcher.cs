@@ -250,6 +250,23 @@ namespace PortalJump
 
             try
             {
+                // 环境变量强制指定后端时，必须优先遵守。
+                // 否则排错模式形同虚设："强制 win32" 仍会被下面的 N 卡分支改回 NVAPI，
+                // 这样就没法复现"走错后端导致缩放写不进去"的现场。
+                if (_backendOverride == ScalingBackend.Win32)
+                {
+                    _nativeScalingWritable = true;
+                    Log("原生缩放可写性判定：环境变量强制 Windows 原生接口 → 强制走原生");
+                    return;
+                }
+                if (_backendOverride == ScalingBackend.Nvapi)
+                {
+                    _nativeScalingWritable = !_nvapiReady;
+                    Log("原生缩放可写性判定：环境变量强制 NVAPI → "
+                        + (_nvapiReady ? "走 NVAPI" : "但 NVAPI 不可用，退回原生"));
+                    return;
+                }
+
                 if (_vendor == GpuVendor.Nvidia)
                 {
                     // NVIDIA：原生字段不可写，必须 NVAPI。
@@ -557,8 +574,22 @@ namespace PortalJump
             }
 
             string lastReason = "";
+            // 记录进这个循环前的原始模式，任何失败路径都要回到它 —— 见下面的恢复逻辑。
+            DisplayInfo.DEVMODE origin = DisplayInfo.GetCurrentMode();
+            bool scalingFailed = false;
+            // 连续被驱动以 -2（BADMODE）拒绝的次数。达到 3 次就判定该分辨率整体不可用，
+            // 不再遍历剩余刷新率 —— 见循环内的说明。
+            int badModeCount = 0;
+            bool allModesBad = false;
+
             foreach (DisplayConfigBackend.DEVMODE m in modes)
             {
+                // 若已经因为"缩放写不进去"中止，就不再尝试更低刷新率的同分辨率模式。
+                // 缩放失败和刷新率无关，换刷新率解决不了问题，只会把屏幕越拖越低。
+                if (scalingFailed) break;
+                // 该分辨率整体被驱动拒绝：不再试其它刷新率（纯空转）
+                if (allModesBad) break;
+
                 DisplayConfigBackend.DEVMODE candidate = m;
                 for (int attempt = 1; attempt <= ApplyRetryCount; attempt++)
                 {
@@ -571,6 +602,21 @@ namespace PortalJump
                     if (r != 0)
                     {
                         lastReason = DisplayConfigBackend.DescribeResult(r);
+                        // r == -2（DISP_CHANGE_BADMODE）：这个"分辨率+刷新率"组合被驱动拒绝。
+                        // 若同一分辨率下连续几个组合都被拒，说明整个分辨率不可用
+                        // （例如当前显示器/驱动不支持该分辨率），继续换刷新率是纯空转：
+                        // 实测会把 11 个模式全试一遍（144→23Hz）后才报错，白等几秒。
+                        if (r == -2)
+                        {
+                            badModeCount++;
+                            if (badModeCount >= 3)
+                            {
+                                Log("该分辨率下连续 " + badModeCount + " 个模式均被驱动拒绝，判定分辨率整体不可用");
+                                allModesBad = true;
+                                break;
+                            }
+                            break;
+                        }
                         // 驱动忙 / 一般性错误：等一会儿重试；明确不支持就别浪费次数
                         if (r == -1 || r == -3)
                         {
@@ -579,6 +625,7 @@ namespace PortalJump
                         }
                         break;
                     }
+                    badModeCount = 0;   // 一旦有模式被接受，清零
 
                     // 返回 0 也要回读确认 —— 这正是旧版漏掉的一步
                     if (WaitForMode(p.Width, p.Height, candidate.dmDisplayFrequency, ConfirmTimeoutMilliseconds))
@@ -597,12 +644,25 @@ namespace PortalJump
                             }
                             else
                             {
-                                // 没落上：重试整个"切模式+缩放"，而不是只打日志放过。
-                                Log("缩放未随模式切换生效（回读 " + got + "），重试整个切换");
+                                // 【关键】缩放没落上就**到此为止**，不再换更低刷新率重试。
+                                //
+                                // 旧逻辑在这里 continue，内层 3 次用完后外层 foreach 会推进到
+                                // 下一个更低刷新率的模式，于是一路 144→120→60→50→30→29→25→24→23Hz，
+                                // 最后报失败时屏幕已经停在最低刷新率上（实测 2026-10-23 17:34 发生）。
+                                //
+                                // 缩放写不进去通常意味着走错了后端（例如 N 卡误判成"未知厂商"
+                                // 而退回 Windows 原生接口），降刷新率既解决不了也伤害体验。
+                                // 正确做法：立刻停手，把屏幕恢复原状，如实报错。
+                                Log("缩放未随模式切换生效（回读 " + got + "），中止重试并恢复原模式");
                                 lastReason = "缩放未生效";
-                                Thread.Sleep(350 * attempt);
-                                continue;
+                                scalingFailed = true;
+                                break;
                             }
+                        }
+                        else
+                        {
+                            // 不并缩放时，只要模式切对了就算成功。
+                            return true;
                         }
                         return true;
                     }
@@ -610,6 +670,40 @@ namespace PortalJump
                     Log("返回成功但回读不符，重试（第" + attempt + "次）");
                     lastReason = "驱动未真正生效";
                     Thread.Sleep(400 * attempt);
+                }
+            }
+
+            // 无论是缩放失败还是所有模式都试完仍失败，都把屏幕恢复到进入循环前的模式。
+            // 这是"绝不把用户屏幕留在糟糕状态"的兜底：宁可切回原状，也不留着最低刷新率。
+            if (origin.dmPelsWidth > 0)
+            {
+                try
+                {
+                    bool curOk = DisplayInfo.IsCurrent(origin.dmPelsWidth, origin.dmPelsHeight)
+                                 && DisplayInfo.GetCurrentMode().dmDisplayFrequency == origin.dmDisplayFrequency;
+                    if (!curOk)
+                    {
+                        Log("恢复到切换前的模式：" + origin.dmPelsWidth + "x" + origin.dmPelsHeight
+                            + "@" + origin.dmDisplayFrequency + "Hz");
+                        // 用 DisplayInfo.ApplyMode：它接受 DisplayInfo.DEVMODE（origin 的类型）。
+                        // DisplayConfigBackend.ApplyMode 要的是另一个类型，不能直接混用。
+                        DisplayInfo.ApplyMode(origin);
+                        if (WaitForMode(origin.dmPelsWidth, origin.dmPelsHeight, origin.dmDisplayFrequency, 3000))
+                        {
+                            Log("已恢复原模式");
+                        }
+                        else
+                        {
+                            Log("恢复原模式未能确认（驱动可能拒绝），当前停留在 "
+                                + DisplayInfo.GetCurrentMode().dmPelsWidth + "x"
+                                + DisplayInfo.GetCurrentMode().dmPelsHeight + "@"
+                                + DisplayInfo.GetCurrentMode().dmDisplayFrequency + "Hz");
+                        }
+                    }
+                }
+                catch (Exception e)
+                {
+                    Log("恢复原模式异常：" + e.Message);
                 }
             }
 

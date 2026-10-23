@@ -402,7 +402,7 @@ namespace PortalJump
         /// 实测本机用户为了游戏改过系统显示名，WMI 报 "GTX 1050 Ti"，
         /// 但 DeviceString 仍是真实的 "RTX 4060 Ti"。判厂商请用 DetectVendor()。
         /// </summary>
-        public static List<string> GetAdapterNames()
+        public static List<string> GetAdapterNames(bool includeDetached = false)
         {
             var names = new List<string>();
             var dd = new DISPLAY_DEVICE();
@@ -411,7 +411,12 @@ namespace PortalJump
             {
                 // 只要真正挂在桌面上的适配器；虚拟显示驱动（如向日葵 OrayIddDriver）
                 // 通常没有 ATTACHED_TO_DESKTOP 标志，会被自动排除。
-                if ((dd.StateFlags & DISPLAY_DEVICE_ATTACHED_TO_DESKTOP) != 0
+                //
+                // includeDetached=true 时放宽这个条件：启动早期可能一个都没有 attached
+                // （见 GetAdapterVendorIds 的说明）。此时靠名字兜底也比"未知厂商"强，
+                // 调用方需自行过滤掉已知的虚拟显示驱动名。
+                bool attached = (dd.StateFlags & DISPLAY_DEVICE_ATTACHED_TO_DESKTOP) != 0;
+                if ((attached || includeDetached)
                     && !string.IsNullOrEmpty(dd.DeviceString)
                     && !names.Contains(dd.DeviceString))
                 {
@@ -424,15 +429,23 @@ namespace PortalJump
 
         /// <summary>
         /// 列出适配器的 PCI 厂商 ID（形如 "VEN_10DE"）。这是硬件层信息，改显示名改不掉它。
+        ///
+        /// includeDetached 参数很关键：
+        /// 正常情况只统计 ATTACHED_TO_DESKTOP 的适配器；但实测存在**启动早期枚举不到**
+        /// 的情况（本机 2026-10-23 16:42 那次启动，14 个适配器一个都没置 attached 标志），
+        /// 此时会返回空列表，导致厂商识别成「未知」。带 includeDetached 再取一次，
+        /// 就能从硬件 ID 拿到真实厂商 —— 虚拟显示驱动（Root\OrayIddDriver）没有 VEN_ 段，
+        /// 不会被误判，所以放宽这个条件不会引入错误识别。
         /// </summary>
-        public static List<string> GetAdapterVendorIds()
+        public static List<string> GetAdapterVendorIds(bool includeDetached = false)
         {
             var ids = new List<string>();
             var dd = new DISPLAY_DEVICE();
             dd.cb = Marshal.SizeOf(typeof(DISPLAY_DEVICE));
             for (uint i = 0; EnumDisplayDevicesA(null, i, ref dd, 0); i++)
             {
-                if ((dd.StateFlags & DISPLAY_DEVICE_ATTACHED_TO_DESKTOP) != 0
+                bool attached = (dd.StateFlags & DISPLAY_DEVICE_ATTACHED_TO_DESKTOP) != 0;
+                if ((attached || includeDetached)
                     && !string.IsNullOrEmpty(dd.DeviceID))
                 {
                     // DeviceID 形如：
@@ -458,28 +471,47 @@ namespace PortalJump
         /// 名字可以被改（实测本机为提升游戏画质改过显示名，WMI 报 GTX 1050 Ti，
         /// 真实是 RTX 4060 Ti）。而 VEN_10DE / VEN_1002 / VEN_8086 是硬件 ID，
         /// 改显示名改不掉，所以更可靠。名字只作为 ID 缺失时的兜底。
+        ///
+        /// 【重要】必须容忍枚举失败：
+        /// 实测本机 2026-10-23 两次启动同一份程序，04:12 识别为 NVIDIA，
+        /// 16:42 识别为「未知厂商（）」—— 后者导致缩放从 NVAPI 错退到 Windows 原生接口，
+        /// 而原生接口在 N 卡上写不进缩放，进而触发"降刷新率重试"把屏幕拖到 23Hz。
+        /// 所以这里：先重试几轮（枚举有时序抖动），仍失败就**放宽 attached 条件**按硬件 ID 判，
+        /// 最后才用名字猜。宁可多试几次，也不能把 N 卡误判成未知。
         /// </summary>
         public static GpuVendor DetectVendor()
         {
-            // 1) 首选：PCI 厂商 ID（硬件层，改不掉）
+            // 1) 首选：PCI 厂商 ID（硬件层，改不掉）。重试 3 轮，每轮 120ms。
+            //    启动早期 EnumDisplayDevices 可能返回空，等一会儿通常就有了。
+            for (int attempt = 0; attempt < 3; attempt++)
+            {
+                try
+                {
+                    GpuVendor v = MatchVendorIds(GetAdapterVendorIds());
+                    if (v != GpuVendor.Unknown) return v;
+                }
+                catch { }
+                if (attempt < 2) System.Threading.Thread.Sleep(120);
+            }
+
+            // 2) 仍没识别出来：放宽 attached 条件再取一次硬件 ID。
+            //    虚拟显示驱动（Root\OrayIddDriver）的 DeviceID 里没有 VEN_ 段，
+            //    所以放宽不会把它误认成显卡厂商。
             try
             {
-                List<string> vids = GetAdapterVendorIds();
-                foreach (string v in vids)
-                {
-                    if (v == "VEN_10DE") return GpuVendor.Nvidia;   // NVIDIA
-                    if (v == "VEN_1002") return GpuVendor.Amd;      // AMD / ATI
-                    if (v == "VEN_8086") return GpuVendor.Intel;    // Intel
-                }
+                GpuVendor v = MatchVendorIds(GetAdapterVendorIds(true));
+                if (v != GpuVendor.Unknown) return v;
             }
             catch { }
 
-            // 2) 兜底：按适配器名字猜
-            List<string> names = GetAdapterNames();
+            // 3) 最后兜底：按适配器名字猜（同时放宽 attached）
+            List<string> names = GetAdapterNames(true);
             bool nv = false, amd = false, intel = false;
             foreach (string n in names)
             {
                 string s = n.ToLowerInvariant();
+                // 排除虚拟显示驱动，避免把 "OrayIddDriver Device" 当成真实显卡
+                if (s.Contains("oray") || s.Contains("virtual") || s.Contains("idd")) continue;
                 if (s.Contains("nvidia") || s.Contains("geforce") || s.Contains("quadro") || s.Contains("rtx")) nv = true;
                 else if (s.Contains("amd") || s.Contains("radeon") || s.Contains("ati ")) amd = true;
                 else if (s.Contains("intel") || s.Contains("arc") || s.Contains("iris") || s.Contains("uhd")) intel = true;
@@ -488,6 +520,17 @@ namespace PortalJump
             if (nv) return GpuVendor.Nvidia;
             if (amd) return GpuVendor.Amd;
             if (intel) return GpuVendor.Intel;
+            return GpuVendor.Unknown;
+        }
+
+        static GpuVendor MatchVendorIds(List<string> vids)
+        {
+            foreach (string v in vids)
+            {
+                if (v == "VEN_10DE") return GpuVendor.Nvidia;   // NVIDIA
+                if (v == "VEN_1002") return GpuVendor.Amd;      // AMD / ATI
+                if (v == "VEN_8086") return GpuVendor.Intel;    // Intel
+            }
             return GpuVendor.Unknown;
         }
 
