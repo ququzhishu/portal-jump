@@ -143,6 +143,18 @@ namespace PortalJump
         // ------------------------------------------------------------------
 
         /// <summary>
+        /// 提交缩放时用的标志位。必须带 SaveToPersistence，否则驱动不提交。
+        ///
+        /// 2026-11-06 在本机 RTX 4060 Ti / 驱动 616.92 上逐项实测（只改缩放、不动分辨率）：
+        ///   None(0)                 请求 5 → 回读 3，请求 2 → 回读 3，都没变
+        ///   ForceCommit(0x10)       请求 2 → 回读 3，没变
+        ///   SaveToPersistence(0x2)  请求 5 → 回读 5，请求 2 → 回读 2，都生效
+        /// 驱动会把「只改缩放」的提交当成空操作跳过，回读拿到的仍是上一次的全局缩放值，
+        /// 表现就是分辨率切了、缩放没切。
+        /// </summary>
+        const DisplayConfigFlags ScalingSubmitFlags = DisplayConfigFlags.SaveToPersistence;
+
+        /// <summary>
         /// 用 NVAPI 设置缩放。nvScaling 用 NV_SCALING 数值。
         /// 成功返回 true；actual 非空表示驱动实际采用了别的值。
         /// 所有 NVAPI 类型都封在 ApplyCore 里。
@@ -183,7 +195,7 @@ namespace PortalJump
             try
             {
                 IPathInfo[] rebuilt = BuildPathsWithScaling(paths, idx, nvScaling);
-                DisplayApi.SetDisplayConfig(rebuilt, DisplayConfigFlags.None);
+                DisplayApi.SetDisplayConfig(rebuilt, ScalingSubmitFlags);
             }
             catch (NVIDIAApiException e)
             {
@@ -250,7 +262,7 @@ namespace PortalJump
                         if (a2 >= 0)
                         {
                             IPathInfo[] rebuilt2 = BuildPathsWithScaling(again, a2, nvScaling);
-                            DisplayApi.SetDisplayConfig(rebuilt2, DisplayConfigFlags.None);
+                            DisplayApi.SetDisplayConfig(rebuilt2, ScalingSubmitFlags);
                         }
                     }
                     catch (Exception e)
